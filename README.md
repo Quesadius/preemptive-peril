@@ -4,7 +4,9 @@
 
 A turn-based grid tactics game built in Godot 4 with GDScript. Command an army of infantry, tanks, artillery and transports, capture cities for income, build reinforcements at factories, and break the enemy commander before they break you.
 
-**Status:** playable against the computer on one map, *Crossroads*. Graphics are placeholders (coloured tiles, units drawn as shapes with two-letter labels) and there is no audio yet.
+**Status:** playable against the computer on one map, *Crossroads*, with pixel art from Kenney's Tiny Battle pack. There is no audio yet.
+
+![The Crossroads map at the start of a match: red's army and base on the left, blue's on the right, neutral cities in between](docs/screenshots/crossroads.png)
 
 ## Running the game
 
@@ -26,6 +28,10 @@ You need [Godot](https://godotengine.org/) 4.6 or newer (CI uses 4.7).
 ## How to play
 
 You command red (CO Vale). The computer commands blue (CO Rook) and plays its turn automatically after you end yours.
+
+![A red medium tank selected: its movement range is shaded and a blue arrow traces its route to the crossroads](docs/screenshots/crossroads_move.png)
+
+*Moving a unit: the shaded tiles are its range and the arrow is the route you've traced. The blue infantry's "6" badge shows a damaged unit's HP; full-strength units show no badge.*
 
 | Key | Action |
 |---|---|
@@ -90,3 +96,5 @@ If `godot` isn't on your `PATH`, point the script at it with `GODOT_BIN=/path/to
 ## License
 
 Preemptive Peril is released under the [MIT License](LICENSE), copyright Quesadius. The bundled [gdUnit4](addons/gdUnit4) test framework keeps its own MIT license.
+
+Art: [Tiny Battle](https://kenney.nl/assets/tiny-battle) by [Kenney](https://www.kenney.nl), released under [CC0](assets/tiny_battle/License.txt). Medium tanks and rockets borrow the tank and artillery sprites for now, marked *MD* and *RK*.
