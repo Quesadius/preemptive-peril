@@ -56,6 +56,15 @@ jobs:
       - name: Import resources
         run: godot --headless --path . --import || true
 
+      # The image installs export templates under /root, but Actions runs
+      # the container with HOME=/github/home, where Godot looks for them.
+      - name: Move export templates into HOME
+        run: |
+          if [ "$HOME" != /root ]; then
+            mkdir -p ~/.local/share/godot/export_templates
+            mv /root/.local/share/godot/export_templates/${GODOT_VERSION}.stable ~/.local/share/godot/export_templates/
+          fi
+
       # Note: builds boot once res://main.tscn exists and is set as the
       # main scene (see docs/exporting.md); packaging works regardless.
       - name: Export Linux
