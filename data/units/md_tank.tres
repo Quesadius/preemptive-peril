@@ -1,0 +1,55 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/treads.tres" id="1_fhwgq"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_odvgd"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_6qsv7"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_qfy43"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_2whgm"]
+
+[sub_resource type="Resource" id="Resource_x5hhq"]
+script = ExtResource("2_odvgd")
+key = &"md_cannon"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 105,
+&"apc": 105,
+&"artillery": 105,
+&"md_tank": 55,
+&"recon": 105,
+&"rockets": 105,
+&"tank": 85
+})
+
+[sub_resource type="Resource" id="Resource_exgfw"]
+script = ExtResource("3_6qsv7")
+key = &"md_cannon"
+display_name = "Heavy Cannon"
+damage_table = SubResource("Resource_x5hhq")
+
+[sub_resource type="Resource" id="Resource_owhax"]
+script = ExtResource("2_odvgd")
+key = &"md_mg"
+base_damage = Dictionary[StringName, int]({
+&"infantry": 105,
+&"mech": 95
+})
+
+[sub_resource type="Resource" id="Resource_e7fpa"]
+script = ExtResource("3_6qsv7")
+key = &"md_mg"
+display_name = "MG"
+damage_table = SubResource("Resource_owhax")
+uses_ammo = false
+
+[resource]
+script = ExtResource("4_qfy43")
+key = &"md_tank"
+display_name = "Md Tank"
+cost = 16000
+movement = 5
+movement_class = ExtResource("1_fhwgq")
+vision = 1
+max_fuel = 50
+primary_weapon = SubResource("Resource_exgfw")
+secondary_weapon = SubResource("Resource_e7fpa")
+max_ammo = 8
+built_at = Array[StringName]([&"factory"])

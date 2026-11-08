@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="MovementClass" format=3]
+
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="1_xpowc"]
+
+[resource]
+script = ExtResource("1_xpowc")
+key = &"foot"
+display_name = "Foot"

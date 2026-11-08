@@ -1,0 +1,38 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/tires.tres" id="1_3t47r"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="2_idaa0"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="3_cj46q"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="4_eyfad"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_3v11v"]
+
+[sub_resource type="Resource" id="Resource_082ed"]
+script = ExtResource("3_cj46q")
+key = &"recon_mg"
+base_damage = Dictionary[StringName, int]({
+&"apc": 45,
+&"artillery": 45,
+&"infantry": 70,
+&"mech": 65,
+&"recon": 35,
+&"rockets": 55
+})
+
+[sub_resource type="Resource" id="Resource_sjj30"]
+script = ExtResource("4_eyfad")
+key = &"recon_mg"
+display_name = "MG"
+damage_table = SubResource("Resource_082ed")
+uses_ammo = false
+
+[resource]
+script = ExtResource("2_idaa0")
+key = &"recon"
+display_name = "Recon"
+cost = 4000
+movement = 8
+movement_class = ExtResource("1_3t47r")
+vision = 5
+max_fuel = 80
+secondary_weapon = SubResource("Resource_sjj30")
+built_at = Array[StringName]([&"factory"])

@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/tires.tres" id="1_owxph"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_s3vmi"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_2ianu"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_pfutm"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_xhomc"]
+
+[sub_resource type="Resource" id="Resource_johkg"]
+script = ExtResource("2_s3vmi")
+key = &"rocket_pods"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 85,
+&"apc": 80,
+&"artillery": 80,
+&"infantry": 95,
+&"md_tank": 55,
+&"mech": 90,
+&"recon": 90,
+&"rockets": 85,
+&"tank": 80
+})
+
+[sub_resource type="Resource" id="Resource_hdu6p"]
+script = ExtResource("3_2ianu")
+key = &"rocket_pods"
+display_name = "Rockets"
+damage_table = SubResource("Resource_johkg")
+
+[resource]
+script = ExtResource("4_pfutm")
+key = &"rockets"
+display_name = "Rockets"
+cost = 15000
+movement = 5
+movement_class = ExtResource("1_owxph")
+vision = 1
+max_fuel = 50
+primary_weapon = SubResource("Resource_hdu6p")
+max_ammo = 6
+attack_range_min = 3
+attack_range_max = 5
+can_move_and_fire = false
+built_at = Array[StringName]([&"factory"])

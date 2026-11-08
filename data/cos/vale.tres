@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="COProfile" format=3]
+
+[ext_resource type="Script" path="res://data/schema/co_power.gd" id="1_3ehti"]
+[ext_resource type="Script" path="res://data/schema/co_profile.gd" id="2_gpqiq"]
+
+[sub_resource type="Resource" id="Resource_noj1t"]
+script = ExtResource("1_3ehti")
+key = &"rally"
+display_name = "Rally"
+
+[sub_resource type="Resource" id="Resource_r4g3p"]
+script = ExtResource("1_3ehti")
+key = &"grand_rally"
+display_name = "Grand Rally"
+meter_cost = 600
+attack_bonus = 20
+defense_bonus = 20
+heal_hp = 20
+
+[resource]
+script = ExtResource("2_gpqiq")
+key = &"vale"
+display_name = "Vale"
+power = SubResource("Resource_noj1t")
+super_power = SubResource("Resource_r4g3p")

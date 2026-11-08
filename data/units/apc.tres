@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/treads.tres" id="1_xpuvd"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="2_ek4ot"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="3_aigky"]
+[ext_resource type="Resource" path="res://data/movement_classes/foot.tres" id="4_fh02r"]
+[ext_resource type="Resource" path="res://data/movement_classes/boots.tres" id="5_ampv0"]
+
+[resource]
+script = ExtResource("2_ek4ot")
+key = &"apc"
+display_name = "APC"
+cost = 5000
+movement = 6
+movement_class = ExtResource("1_xpuvd")
+vision = 1
+max_fuel = 70
+supply_capable = true
+transport_capacity = 1
+transportable_classes = Array[ExtResource("3_aigky")]([ExtResource("4_fh02r"), ExtResource("5_ampv0")])
+built_at = Array[StringName]([&"factory"])

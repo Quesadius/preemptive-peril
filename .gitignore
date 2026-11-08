@@ -1,0 +1,13 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# gdUnit4 test-run artifacts
+/reports/
+
+# Export outputs
+/build/
+
+# OS and personal tool files
+.DS_Store
+.claude/settings.local.json

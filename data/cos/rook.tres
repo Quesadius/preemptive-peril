@@ -1,0 +1,27 @@
+[gd_resource type="Resource" script_class="COProfile" format=3]
+
+[ext_resource type="Script" path="res://data/schema/co_power.gd" id="1_8ck3u"]
+[ext_resource type="Script" path="res://data/schema/co_profile.gd" id="2_lbteg"]
+
+[sub_resource type="Resource" id="Resource_voc4q"]
+script = ExtResource("1_8ck3u")
+key = &"bulwark"
+display_name = "Bulwark"
+attack_bonus = 0
+defense_bonus = 30
+
+[sub_resource type="Resource" id="Resource_hbpi7"]
+script = ExtResource("1_8ck3u")
+key = &"citadel"
+display_name = "Citadel"
+meter_cost = 600
+defense_bonus = 40
+heal_hp = 10
+
+[resource]
+script = ExtResource("2_lbteg")
+key = &"rook"
+display_name = "Rook"
+passive_defense_bonus = 10
+power = SubResource("Resource_voc4q")
+super_power = SubResource("Resource_hbpi7")

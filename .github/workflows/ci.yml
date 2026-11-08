@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  GODOT_VERSION: 4.7.1
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.7.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gdtoolkit
+        run: pip install --break-system-packages "gdtoolkit==4.*"
+
+      - name: Import resources
+        run: godot --headless --path . --import || true
+
+      - name: Core purity
+        run: ./tools/check_core_purity.sh
+
+      - name: Format check
+        shell: bash
+        run: |
+          # Only check directories that exist — later-milestone dirs aren't created yet.
+          # Mirrors the lint_dirs guard in tools/run_tests.sh.
+          fmt_dirs=()
+          for d in core ai data presentation ui tests; do
+            [[ -d "$d" ]] && fmt_dirs+=("$d/")
+          done
+          [[ ${#fmt_dirs[@]} -eq 0 ]] || gdformat --check "${fmt_dirs[@]}"
+
+      - name: Verify
+        run: ./tools/run_tests.sh
+        env:
+          GODOT_BIN: godot
+
+  export:
+    needs: verify
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.7.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import resources
+        run: godot --headless --path . --import || true
+
+      # Note: builds boot once res://main.tscn exists and is set as the
+      # main scene (see docs/exporting.md); packaging works regardless.
+      - name: Export Linux
+        run: mkdir -p build/linux && godot --headless --path . --export-release "Linux" build/linux/preemptive_peril.x86_64
+
+      - name: Export Windows
+        run: mkdir -p build/windows && godot --headless --path . --export-release "Windows Desktop" build/windows/preemptive_peril.exe
+
+      - name: Export Web
+        run: mkdir -p build/web && godot --headless --path . --export-release "Web" build/web/index.html
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: builds
+          path: build/

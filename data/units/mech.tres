@@ -1,0 +1,60 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/boots.tres" id="1_r6oo7"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_6apah"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_dvqid"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_hstml"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_mmodl"]
+
+[sub_resource type="Resource" id="Resource_lm0na"]
+script = ExtResource("2_6apah")
+key = &"mech_bazooka"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 65,
+&"apc": 75,
+&"artillery": 70,
+&"md_tank": 15,
+&"recon": 85,
+&"rockets": 85,
+&"tank": 55
+})
+
+[sub_resource type="Resource" id="Resource_vnweb"]
+script = ExtResource("3_dvqid")
+key = &"mech_bazooka"
+display_name = "Bazooka"
+damage_table = SubResource("Resource_lm0na")
+
+[sub_resource type="Resource" id="Resource_3c84g"]
+script = ExtResource("2_6apah")
+key = &"mech_mg"
+base_damage = Dictionary[StringName, int]({
+&"apc": 20,
+&"artillery": 32,
+&"infantry": 65,
+&"mech": 55,
+&"recon": 18,
+&"tank": 6
+})
+
+[sub_resource type="Resource" id="Resource_nyb0a"]
+script = ExtResource("3_dvqid")
+key = &"mech_mg"
+display_name = "MG"
+damage_table = SubResource("Resource_3c84g")
+uses_ammo = false
+
+[resource]
+script = ExtResource("4_hstml")
+key = &"mech"
+display_name = "Mech"
+cost = 3000
+movement = 2
+movement_class = ExtResource("1_r6oo7")
+vision = 1
+max_fuel = 70
+primary_weapon = SubResource("Resource_vnweb")
+secondary_weapon = SubResource("Resource_nyb0a")
+max_ammo = 3
+capture_capable = true
+built_at = Array[StringName]([&"factory"])

@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/treads.tres" id="1_5ufio"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_txxsr"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_63wyp"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_osfmp"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_kr14b"]
+
+[sub_resource type="Resource" id="Resource_p2ei5"]
+script = ExtResource("2_txxsr")
+key = &"vulcan"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 45,
+&"apc": 50,
+&"artillery": 50,
+&"infantry": 105,
+&"md_tank": 10,
+&"mech": 105,
+&"recon": 60,
+&"rockets": 55,
+&"tank": 25
+})
+
+[sub_resource type="Resource" id="Resource_382l5"]
+script = ExtResource("3_63wyp")
+key = &"vulcan"
+display_name = "Vulcan"
+damage_table = SubResource("Resource_p2ei5")
+
+[resource]
+script = ExtResource("4_osfmp")
+key = &"anti_air"
+display_name = "Anti-Air"
+cost = 8000
+movement = 6
+movement_class = ExtResource("1_5ufio")
+max_fuel = 60
+primary_weapon = SubResource("Resource_382l5")
+max_ammo = 9
+built_at = Array[StringName]([&"factory"])

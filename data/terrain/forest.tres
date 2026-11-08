@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="TerrainType" format=3]
+
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="1_rsm2o"]
+[ext_resource type="Script" path="res://data/schema/terrain_type.gd" id="2_ori01"]
+
+[resource]
+script = ExtResource("2_ori01")
+key = &"forest"
+display_name = "Forest"
+defense_stars = 2
+hides_units = true
+move_costs = Dictionary[StringName, PackedInt32Array]({
+&"boots": PackedInt32Array(1, 1, 1),
+&"foot": PackedInt32Array(1, 1, 2),
+&"tires": PackedInt32Array(3, 4, 4),
+&"treads": PackedInt32Array(2, 3, 3)
+})

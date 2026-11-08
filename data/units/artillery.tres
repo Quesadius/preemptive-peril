@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/treads.tres" id="1_d02jo"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_2do8m"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_u28ck"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_tnxtg"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_jef0v"]
+
+[sub_resource type="Resource" id="Resource_t8nu0"]
+script = ExtResource("2_2do8m")
+key = &"artillery_shells"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 75,
+&"apc": 70,
+&"artillery": 75,
+&"infantry": 90,
+&"md_tank": 45,
+&"mech": 85,
+&"recon": 80,
+&"rockets": 80,
+&"tank": 70
+})
+
+[sub_resource type="Resource" id="Resource_ygxxo"]
+script = ExtResource("3_u28ck")
+key = &"artillery_shells"
+display_name = "Shells"
+damage_table = SubResource("Resource_t8nu0")
+
+[resource]
+script = ExtResource("4_tnxtg")
+key = &"artillery"
+display_name = "Artillery"
+cost = 6000
+movement = 5
+movement_class = ExtResource("1_d02jo")
+vision = 1
+max_fuel = 50
+primary_weapon = SubResource("Resource_ygxxo")
+max_ammo = 9
+attack_range_min = 2
+attack_range_max = 3
+can_move_and_fire = false
+built_at = Array[StringName]([&"factory"])

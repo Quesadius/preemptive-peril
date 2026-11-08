@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/foot.tres" id="1_gj7tk"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="2_42jhd"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="3_yfsu7"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="4_64vs7"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_020jj"]
+
+[sub_resource type="Resource" id="Resource_f3ej2"]
+script = ExtResource("3_yfsu7")
+key = &"infantry_mg"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 5,
+&"apc": 14,
+&"artillery": 15,
+&"infantry": 55,
+&"mech": 45,
+&"recon": 12,
+&"rockets": 25,
+&"tank": 5
+})
+
+[sub_resource type="Resource" id="Resource_w7yis"]
+script = ExtResource("4_64vs7")
+key = &"infantry_mg"
+display_name = "MG"
+damage_table = SubResource("Resource_f3ej2")
+uses_ammo = false
+
+[resource]
+script = ExtResource("2_42jhd")
+key = &"infantry"
+display_name = "Infantry"
+movement_class = ExtResource("1_gj7tk")
+secondary_weapon = SubResource("Resource_w7yis")
+capture_capable = true
+built_at = Array[StringName]([&"factory"])
