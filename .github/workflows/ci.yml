@@ -15,8 +15,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The godot-ci image ships without pip. Newer Ubuntu bases refuse a
+      # plain system-wide pip install (PEP 668), older pips don't know the
+      # override flag — try plain first, then with the flag.
       - name: Install gdtoolkit
-        run: pip install --break-system-packages "gdtoolkit==4.*"
+        run: |
+          apt-get update -qq && apt-get install -y -qq python3-pip > /dev/null
+          python3 -m pip install "gdtoolkit==4.*" || python3 -m pip install --break-system-packages "gdtoolkit==4.*"
 
       - name: Import resources
         run: godot --headless --path . --import || true

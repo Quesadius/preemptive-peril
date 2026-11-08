@@ -211,8 +211,11 @@ func test_from_json_rejects_mistyped_fields() -> void:
 	]
 	for text: String in bad:
 		assert_object(SaveGame.from_json(text)).append_failure_message(text).is_null()
-	var ok := SaveGame.from_json(
-		'{"version": 1, "seed": 42, "players": [{"team": 1, "co": "rook"}], "actions": [{"kind": "end"}]}'
+	var ok := (
+		SaveGame
+		. from_json(
+			'{"version": 1, "seed": 42, "players": [{"team": 1, "co": "rook"}], "actions": [{"kind": "end"}]}'
+		)
 	)
 	assert_object(ok).is_not_null()
 	assert_int(ok.rng_seed).is_equal(42)
@@ -237,7 +240,11 @@ func test_action_from_dict_rejects_malformed_fields() -> void:
 	]
 	for text: String in bad:
 		var data: Dictionary = JSON.parse_string(text)
-		assert_object(SaveGame.action_from_dict(data, ruleset)).append_failure_message(text).is_null()
+		(
+			assert_object(SaveGame.action_from_dict(data, ruleset))
+			. append_failure_message(text)
+			. is_null()
+		)
 	var good: Dictionary = JSON.parse_string(
 		'{"kind": "unit", "unit": 1, "verb": 0, "path": [[0, 0], [1, 0]], "tx": 0, "ty": 0}'
 	)
@@ -332,14 +339,17 @@ func test_settings_store_filters_types_and_clamps() -> void:
 	var store: Node = get_tree().root.get_node("SettingsStore")
 	var sfx_before: float = store.get_setting("sfx_volume")
 	var skip_before: bool = store.get_setting("skip_animations")
-	store.apply_loaded(
-		{
-			"sfx_volume": "loud",  # wrong type: ignored
-			"music_volume": 7.0,  # clamped to 1
-			"skip_animations": 1.0,  # wrong type: ignored
-			"bogus": true,  # unknown key: dropped
-			"fog_default": true,
-		}
+	(
+		store
+		. apply_loaded(
+			{
+				"sfx_volume": "loud",  # wrong type: ignored
+				"music_volume": 7.0,  # clamped to 1
+				"skip_animations": 1.0,  # wrong type: ignored
+				"bogus": true,  # unknown key: dropped
+				"fog_default": true,
+			}
+		)
 	)
 	assert_float(store.get_setting("sfx_volume")).is_equal_approx(sfx_before, 0.0001)
 	assert_float(store.get_setting("music_volume")).is_equal_approx(1.0, 0.0001)
