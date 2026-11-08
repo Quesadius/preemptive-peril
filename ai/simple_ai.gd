@@ -14,6 +14,9 @@ const END_TURN_SCORE := 1.0
 const KILL_BOUNTY := 0.3
 const CAPTURE_STEP_SCORE := 500.0
 const CAPTURE_COMPLETE_SCORE := 1200.0
+## Completing the capture of an enemy-held HQ — usually the game. Outbids
+## everything else on the board.
+const HQ_CAPTURE_SCORE := 1000000.0
 const ADVANCE_PER_TILE := 12.0
 const BUILD_BASE_SCORE := 120.0
 const POWER_SCORE := 2000.0
@@ -92,6 +95,10 @@ func _score_capture(view: StateView, ua: UnitAction) -> float:
 		progress = view.map().capture_progress[dest]
 	var after: int = progress + capturer.display_hp()
 	if after >= view.ruleset().capture_threshold:
+		var map := view.map()
+		var terrain: TerrainType = view.ruleset().terrain_types[map.terrain_at(dest)]
+		if terrain.is_hq and map.property_owner[map.idx(dest)] != MapState.NO_OWNER:
+			return HQ_CAPTURE_SCORE
 		return CAPTURE_COMPLETE_SCORE * profile.capture_weight
 	return CAPTURE_STEP_SCORE * profile.capture_weight
 

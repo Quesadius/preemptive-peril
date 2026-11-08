@@ -11,9 +11,11 @@ extends Node
 ## menu (BUILD_MENU), and confirming an empty tile offers End Turn.
 ## TARGET_SELECT shows the damage forecast for the hovered target.
 ## ENEMY_TURN plays AI-owned turns through the same commit pipeline;
-## GAME_OVER freezes input for good.
+## GAME_OVER announces the result and freezes play — confirming there
+## asks for a new match (restart_requested), which Battle answers.
 
 signal action_rejected(code: StringName)
+signal restart_requested
 
 enum State {
 	IDLE,
@@ -83,6 +85,7 @@ func setup(state: GameState) -> void:
 			hud.action_menu.cancelled.connect(_on_menu_cancelled)
 			hud.build_menu.chosen.connect(_on_build_chosen)
 			hud.build_menu.cancelled.connect(_on_build_cancelled)
+		hud.hide_result()
 		hud.refresh(_state)
 		if cursor != null:
 			hud.inspect(_state, cursor.coord, _view_team)
@@ -134,6 +137,8 @@ func confirm() -> void:
 			_confirm_destination()
 		State.TARGET_SELECT:
 			_confirm_target()
+		State.GAME_OVER:
+			restart_requested.emit()
 		_:
 			pass
 
@@ -426,7 +431,7 @@ func _commit(action: Action) -> void:
 	if hud != null:
 		hud.refresh(_state)
 		hud.on_events(events)
-	_phase = State.GAME_OVER if _saw_game_end(events) else State.IDLE
+	_settle(events)
 	await _run_ai_turns()
 
 
@@ -450,14 +455,38 @@ func _run_ai_turns() -> void:
 		if hud != null:
 			hud.refresh(_state)
 			hud.on_events(events)
-		_phase = State.GAME_OVER if _saw_game_end(events) else State.IDLE
+		_settle(events)
 
 
-func _saw_game_end(events: Array[GameEvent]) -> bool:
+## Lands the phase after a committed action: IDLE, or GAME_OVER with the
+## result on screen when the action ended the match.
+func _settle(events: Array[GameEvent]) -> void:
+	var ended: Events.GameEnded = null
+	var reason: StringName = &""
 	for e: GameEvent in events:
 		if e is Events.GameEnded:
-			return true
-	return false
+			ended = e as Events.GameEnded
+		elif e is Events.PlayerEliminated:
+			reason = (e as Events.PlayerEliminated).reason
+	if ended == null:
+		_phase = State.IDLE
+		return
+	_phase = State.GAME_OVER
+	if hud != null:
+		hud.show_result(result_text(ended.winning_team == _view_team, reason))
+
+
+## The game-over message from the viewing player's side. `reason` is the
+## final elimination's (Victory's "hq_captured" or "routed").
+static func result_text(won: bool, reason: StringName) -> String:
+	var how := ""
+	match reason:
+		&"hq_captured":
+			how = "Enemy HQ captured." if won else "Your HQ has fallen."
+		&"routed":
+			how = "The enemy army is routed." if won else "Your army is routed."
+	var headline := "Victory!" if won else "Defeat"
+	return "%s\n%s\nPress Enter to play again." % [headline, how]
 
 
 ## Build-menu rows for the facility at `coord`: every type it can

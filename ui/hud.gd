@@ -15,8 +15,11 @@ var damage_panel: DamagePreviewPanel
 var action_menu: ActionMenu
 var build_menu: BuildMenu
 var banner: Label
+## The end-of-match message; stays up until the next match starts.
+var result_panel: PanelContainer
 
 var _root: Control
+var _result_label: Label
 
 
 func _init() -> void:
@@ -60,6 +63,13 @@ func _init() -> void:
 	)
 	banner.visible = false
 	_root.add_child(banner)
+	result_panel = PanelContainer.new()
+	_result_label = Label.new()
+	_result_label.add_theme_font_size_override("font_size", 32)
+	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	result_panel.add_child(_result_label)
+	result_panel.visible = false
+	_root.add_child(result_panel)
 
 
 ## Refreshes the status bar from the state (CO meter included).
@@ -80,6 +90,10 @@ func refresh(state: GameState) -> void:
 ## showing only what `viewing_team` knows under fog: a hidden enemy
 ## reads as an empty tile. -1 = omniscient (fog off, tests).
 func inspect(state: GameState, coord: Vector2i, viewing_team: int = -1) -> void:
+	# While a new match loads, the cursor moves onto the new map before
+	# the controller drops the old state; skip coords the state lacks.
+	if not state.map.in_bounds(coord):
+		return
 	terrain_panel.show_tile(state, coord, viewing_team)
 	var unit: UnitState = state.unit_at(coord)
 	if viewing_team >= 0:
@@ -98,6 +112,26 @@ func on_events(events: Array[GameEvent]) -> void:
 		if e is Events.TurnStarted:
 			var started := e as Events.TurnStarted
 			_flash_banner("Day %d — Team %d" % [started.day, started.team])
+
+
+## Shows the end-of-match message, centered, until hide_result().
+func show_result(text: String) -> void:
+	_result_label.text = text
+	result_panel.visible = true
+	result_panel.reset_size()  # re-center on the new text's size
+	result_panel.set_anchors_and_offsets_preset(
+		Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE, 0
+	)
+
+
+## Clears the end-of-match message (a new match is starting).
+func hide_result() -> void:
+	result_panel.visible = false
+
+
+## The end-of-match message, for tests.
+func result_text() -> String:
+	return _result_label.text
 
 
 ## Hides every transient element (menus, forecast).

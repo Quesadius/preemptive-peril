@@ -250,7 +250,7 @@ func test_ai_plays_its_whole_turn_after_human_ends() -> void:
 	assert_that(_phase(b)).is_equal(BattleController.State.IDLE)
 
 
-func test_game_over_phase_after_final_kill() -> void:
+func test_game_over_announces_and_restarts() -> void:
 	var b := _rig()
 	var gs := BattleFixture.make_state()
 	BattleFixture.spawn(gs, BattleFixture.TANK, 0, Vector2i(1, 2))
@@ -265,9 +265,46 @@ func test_game_over_phase_after_final_kill() -> void:
 	b.controller.confirm()  # kill -> rout -> game over
 	assert_that(_phase(b)).is_equal(BattleController.State.GAME_OVER)
 	assert_bool(b.state.units.has(doomed.id)).is_false()
+	assert_bool(b.hud.result_panel.visible).is_true()
+	assert_str(b.hud.result_text()).is_equal(
+		"Victory!\nThe enemy army is routed.\nPress Enter to play again."
+	)
+	# Play is frozen: the cursor roams but selects nothing.
 	b.cursor.move_to(Vector2i(1, 2))
-	b.controller.confirm()  # input is dead after the end
 	assert_that(_phase(b)).is_equal(BattleController.State.GAME_OVER)
+	# Confirm starts a new match — the demo, since this state wasn't
+	# built from an authored map.
+	var finished := b.state
+	b.controller.confirm()
+	assert_that(_phase(b)).is_equal(BattleController.State.IDLE)
+	assert_object(b.state).is_not_same(finished)
+	assert_int(b.state.map.width).is_equal(10)  # the demo board
+	assert_bool(b.hud.result_panel.visible).is_false()
+
+
+func test_hq_capture_wins_through_the_ui() -> void:
+	# Blue keeps a factory and a tank; only the HQ falls.
+	var b := _rig()
+	var gs := BattleFixture.make_econ_state()
+	gs.map.terrain[gs.map.idx(Vector2i(2, 0))] = BattleFixture.HQ
+	BattleFixture.claim(gs, Vector2i(2, 0), 1)
+	BattleFixture.claim(gs, Vector2i(3, 1), 1)
+	BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(4, 2))
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(2, 0))
+	gs.map.capture_progress[Vector2i(2, 0)] = 10
+	b.load_state(gs)
+	b.cursor.move_to(Vector2i(2, 0))
+	b.controller.confirm()
+	b.controller.confirm()  # stay put -> verb menu
+	_choose(b, "Capture")
+	assert_that(_phase(b)).is_equal(BattleController.State.GAME_OVER)
+	assert_str(b.hud.result_text()).is_equal(
+		"Victory!\nEnemy HQ captured.\nPress Enter to play again."
+	)
+	# The losing side's wording, for when the AI takes yours.
+	assert_str(BattleController.result_text(false, &"hq_captured")).is_equal(
+		"Defeat\nYour HQ has fallen.\nPress Enter to play again."
+	)
 
 
 func test_unload_flow_via_menu_and_target_select() -> void:

@@ -43,6 +43,7 @@ const SEA := 3
 const ROAD := 4
 const CITY := 5
 const FACTORY := 6
+const HQ := 7  # not painted on any layout; tests place it
 
 const INFANTRY := 0
 const TANK := 1
@@ -317,12 +318,15 @@ static func _make_ruleset() -> Ruleset:
 				_make_terrain(&"road", 0, _pa(1, 1, 1), _pa(1, 1, 1), _pa(1, 1, 2)),
 				_make_property_terrain(&"city", &"", [foot, treads]),
 				_make_property_terrain(&"factory", &"factory", [foot, treads]),
+				_make_property_terrain(&"hq", &"", [foot, treads]),
 			]
 		)
 	)
 	rs.unit_types.assign([infantry, tank, heli, ranger, artillery, apc])
 	rs.terrain_types[FOREST].hides_units = true
 	rs.terrain_types[MOUNTAIN].vision_bonus = 3
+	rs.terrain_types[HQ].is_hq = true
+	rs.terrain_types[HQ].defense_stars = 4
 	return rs
 
 

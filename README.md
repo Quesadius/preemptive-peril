@@ -42,9 +42,9 @@ What **Enter** does depends on what is under the cursor:
 - **An empty factory you own** opens the build menu.
 - **Any other empty tile** opens the system menu: **End Turn**, plus your CO power once its meter is full.
 
-**Economy and capture.** Each property you own pays 1,000 funds at the start of your turn, and your units standing on your properties are repaired and resupplied. Infantry and mechs capture cities and factories. A property needs 20 capture points, and each turn adds the capturing unit's displayed HP, so healthy units capture faster.
+**Economy and capture.** Each property you own pays 1,000 funds at the start of your turn, and your units standing on your properties are repaired and resupplied. Infantry and mechs capture cities, factories and HQs. A property needs 20 capture points, and each turn adds the capturing unit's displayed HP, so healthy units capture faster.
 
-**Winning.** A player is eliminated when they have no units left and no factory to rebuild from. The last player standing wins.
+**Winning.** Each side has an HQ, the gold tile in its home base. Capture the enemy HQ and you win on the spot. A player is also eliminated when they have no units left and no factory to rebuild from. When the match ends, a Victory or Defeat message appears; press **Enter** to play again.
 
 ## Development
 

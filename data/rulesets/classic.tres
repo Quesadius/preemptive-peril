@@ -21,6 +21,7 @@
 [ext_resource type="Resource" path="res://data/units/mech.tres" id="15_iws40"]
 [ext_resource type="Resource" path="res://data/units/tank.tres" id="16_5odkt"]
 [ext_resource type="Resource" path="res://data/units/artillery.tres" id="17_6v3ih"]
+[ext_resource type="Resource" path="res://data/terrain/hq.tres" id="17_f41ql"]
 [ext_resource type="Resource" path="res://data/units/recon.tres" id="19_shf0k"]
 [ext_resource type="Resource" path="res://data/units/md_tank.tres" id="20_yq4at"]
 [ext_resource type="Resource" path="res://data/units/rockets.tres" id="21_172al"]
@@ -30,6 +31,6 @@
 [resource]
 script = ExtResource("5_51ja1")
 unit_types = Array[ExtResource("13_ptb8g")]([ExtResource("14_g7jrj"), ExtResource("15_iws40"), ExtResource("16_5odkt"), ExtResource("17_6v3ih"), ExtResource("19_shf0k"), ExtResource("20_yq4at"), ExtResource("21_172al"), ExtResource("22_cd6y4"), ExtResource("23_shf0k")])
-terrain_types = Array[ExtResource("6_uueo5")]([ExtResource("7_shf0k"), ExtResource("8_yq4at"), ExtResource("9_172al"), ExtResource("10_cd6y4"), ExtResource("11_f41ql"), ExtResource("12_i4fyd")])
+terrain_types = Array[ExtResource("6_uueo5")]([ExtResource("7_shf0k"), ExtResource("8_yq4at"), ExtResource("9_172al"), ExtResource("10_cd6y4"), ExtResource("11_f41ql"), ExtResource("12_i4fyd"), ExtResource("17_f41ql")])
 movement_classes = Array[ExtResource("1_2b13u")]([ExtResource("2_0oaax"), ExtResource("3_54s68"), ExtResource("4_rskax"), ExtResource("5_uueo5")])
 cos = Array[ExtResource("1_cd6y4")]([ExtResource("2_f41ql"), ExtResource("3_i4fyd")])

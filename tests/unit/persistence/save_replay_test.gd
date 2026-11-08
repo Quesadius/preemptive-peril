@@ -192,6 +192,11 @@ func test_crossroads_is_playable() -> void:
 	assert_int(gs.players[0].co_id).is_equal(0)  # vale
 	assert_int(gs.players[1].co_id).is_equal(1)  # rook
 	assert_int(gs.map.property_owner[gs.map.idx(Vector2i(1, 2))]).is_equal(0)
+	# Each side's home city is its HQ: red at (1,1), blue at (10,1).
+	for hq: Vector2i in [Vector2i(1, 1), Vector2i(10, 1)]:
+		assert_bool(ruleset.terrain_types[gs.map.terrain_at(hq)].is_hq).is_true()
+	assert_int(gs.map.property_owner[gs.map.idx(Vector2i(1, 1))]).is_equal(0)
+	assert_int(gs.map.property_owner[gs.map.idx(Vector2i(10, 1))]).is_equal(1)
 	assert_bool(ActionGenerator.generate(gs).size() > 1).is_true()
 
 

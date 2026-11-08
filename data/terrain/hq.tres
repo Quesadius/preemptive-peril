@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="TerrainType" format=3]
+
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="1_k1fg8"]
+[ext_resource type="Resource" path="res://data/movement_classes/foot.tres" id="2_jt2co"]
+[ext_resource type="Resource" path="res://data/movement_classes/boots.tres" id="3_xl6ms"]
+[ext_resource type="Resource" path="res://data/movement_classes/treads.tres" id="4_721ly"]
+[ext_resource type="Resource" path="res://data/movement_classes/tires.tres" id="5_cd88n"]
+[ext_resource type="Script" path="res://data/schema/terrain_type.gd" id="6_msu08"]
+
+[resource]
+script = ExtResource("6_msu08")
+key = &"hq"
+display_name = "HQ"
+defense_stars = 4
+is_property = true
+capturable = true
+income = 1000
+repairs_classes = Array[ExtResource("1_k1fg8")]([ExtResource("2_jt2co"), ExtResource("3_xl6ms"), ExtResource("4_721ly"), ExtResource("5_cd88n")])
+is_hq = true
+move_costs = Dictionary[StringName, PackedInt32Array]({
+&"boots": PackedInt32Array(1, 1, 1),
+&"foot": PackedInt32Array(1, 1, 1),
+&"tires": PackedInt32Array(1, 1, 1),
+&"treads": PackedInt32Array(1, 1, 1)
+})

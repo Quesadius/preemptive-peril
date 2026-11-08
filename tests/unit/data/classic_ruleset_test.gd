@@ -17,7 +17,7 @@ const UNIT_KEYS: Array[StringName] = [
 	&"apc",
 ]
 const TERRAIN_KEYS: Array[StringName] = [
-	&"plains", &"road", &"forest", &"mountain", &"city", &"factory"
+	&"plains", &"road", &"forest", &"mountain", &"city", &"factory", &"hq"
 ]
 const CLASS_KEYS: Array[StringName] = [&"foot", &"boots", &"treads", &"tires"]
 
@@ -31,7 +31,7 @@ func _classic() -> Ruleset:
 func test_loads_with_expected_content() -> void:
 	var rs := _classic()
 	assert_int(rs.unit_types.size()).is_equal(9)
-	assert_int(rs.terrain_types.size()).is_equal(6)
+	assert_int(rs.terrain_types.size()).is_equal(7)
 	assert_int(rs.movement_classes.size()).is_equal(4)
 	for i: int in range(UNIT_KEYS.size()):
 		assert_that(rs.unit_types[i].key).is_equal(UNIT_KEYS[i])
@@ -100,18 +100,25 @@ func test_terrain_properties_and_stats() -> void:
 	var mountain: TerrainType = rs.terrain_types[3]
 	var city: TerrainType = rs.terrain_types[4]
 	var factory: TerrainType = rs.terrain_types[5]
+	var hq: TerrainType = rs.terrain_types[6]
 	for weather: int in range(GameState.Weather.size()):
 		assert_int(mountain.move_costs[&"treads"][weather]).is_equal(-1)
 	assert_int(mountain.move_costs[&"boots"][GameState.Weather.CLEAR]).is_equal(1)
 	assert_int(mountain.vision_bonus).is_equal(3)
 	assert_bool(rs.terrain_types[2].hides_units).is_true()  # forest
-	for property: TerrainType in [city, factory]:
+	for property: TerrainType in [city, factory, hq]:
 		assert_bool(property.is_property).is_true()
 		assert_bool(property.capturable).is_true()
 		assert_int(property.income).is_equal(1000)
 		assert_int(property.repairs_classes.size()).is_equal(4)
 	assert_that(factory.builds).is_equal(&"factory")
 	assert_that(city.builds).is_equal(&"")
+	# The HQ: a tougher city that builds nothing and decides the game.
+	assert_bool(hq.is_hq).is_true()
+	assert_int(hq.defense_stars).is_equal(4)
+	assert_that(hq.builds).is_equal(&"")
+	for ordinary: TerrainType in [city, factory]:
+		assert_bool(ordinary.is_hq).is_false()
 
 
 func test_new_roster_roles_and_costs() -> void:

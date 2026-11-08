@@ -10,6 +10,9 @@ extends Resource
 @export var income: int = 0
 @export var repairs_classes: Array[MovementClass] = []
 @export var builds: StringName = &""  # non-empty if a production facility
+## A headquarters: a player who loses the last tile of this kind they own
+## is eliminated (Victory). Should also be a capturable property.
+@export var is_hq: bool = false
 @export var hides_units: bool = false  # forest / reef
 @export var vision_bonus: int = 0  # mountains
 ## Movement cost per movement-class key, one PackedInt32Array entry per

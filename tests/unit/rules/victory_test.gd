@@ -76,3 +76,101 @@ func test_rotation_skips_the_eliminated() -> void:
 	Rules.apply(gs, EndTurnAction.new())
 	assert_int(gs.current_player).is_equal(0)
 	assert_int(gs.day).is_equal(2)
+
+
+## Paints an HQ for `team` on the econ map and parks a team-0 infantry
+## on it, one step from finishing the capture (10 progress + 10 HP).
+func _hq_siege(gs: GameState, coord: Vector2i, team: int) -> UnitState:
+	gs.map.terrain[gs.map.idx(coord)] = BattleFixture.HQ
+	BattleFixture.claim(gs, coord, team)
+	var capturer := BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, coord)
+	gs.map.capture_progress[coord] = 10
+	return capturer
+
+
+func _capture(gs: GameState, unit: UnitState) -> Array[GameEvent]:
+	var grab := UnitAction.new()
+	grab.unit_id = unit.id
+	grab.path = [unit.coord]
+	grab.verb = UnitAction.Verb.CAPTURE
+	assert_object(Rules.validate(gs, grab)).is_null()
+	return Rules.apply(gs, grab)
+
+
+func _eliminations(events: Array[GameEvent]) -> Array[Events.PlayerEliminated]:
+	var out: Array[Events.PlayerEliminated] = []
+	for e: GameEvent in events:
+		if e is Events.PlayerEliminated:
+			out.append(e as Events.PlayerEliminated)
+	return out
+
+
+func _game_end(events: Array[GameEvent]) -> Events.GameEnded:
+	for e: GameEvent in events:
+		if e is Events.GameEnded:
+			return e as Events.GameEnded
+	return null
+
+
+func test_capturing_the_hq_ends_the_game() -> void:
+	# Blue keeps a factory and a tank, so this can't be a rout: the HQ
+	# alone decides it.
+	var gs := BattleFixture.make_econ_state()
+	BattleFixture.claim(gs, Vector2i(3, 1), 1)
+	BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(4, 2))
+	var capturer := _hq_siege(gs, Vector2i(2, 0), 1)
+	var events := _capture(gs, capturer)
+	var out := _eliminations(events)
+	assert_int(out.size()).is_equal(1)
+	assert_int(out[0].team).is_equal(1)
+	assert_that(out[0].reason).is_equal(&"hq_captured")
+	var ended := _game_end(events)
+	assert_object(ended).is_not_null()
+	assert_int(ended.winning_team).is_equal(0)
+	assert_bool(gs.players[1].is_alive).is_false()
+	assert_int(gs.map.property_owner[gs.map.idx(Vector2i(2, 0))]).is_equal(0)
+
+
+func test_cities_and_neutral_hqs_are_not_decisive() -> void:
+	# The same capture on an ordinary city costs blue nothing but the city…
+	var gs := BattleFixture.make_econ_state()
+	BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(4, 2))
+	BattleFixture.claim(gs, Vector2i(2, 0), 1)  # the econ map's city
+	var capturer := BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(2, 0))
+	gs.map.capture_progress[Vector2i(2, 0)] = 10
+	assert_array(_eliminations(_capture(gs, capturer))).is_empty()
+	assert_bool(gs.players[1].is_alive).is_true()
+	# …and taking an unowned HQ eliminates nobody.
+	var neutral := BattleFixture.make_econ_state()
+	BattleFixture.spawn(neutral, BattleFixture.TANK, 1, Vector2i(4, 2))
+	var taker := _hq_siege(neutral, Vector2i(2, 0), MapState.NO_OWNER)
+	assert_array(_eliminations(_capture(neutral, taker))).is_empty()
+	assert_bool(neutral.players[1].is_alive).is_true()
+
+
+func test_a_second_hq_keeps_its_owner_in_the_game() -> void:
+	var gs := BattleFixture.make_econ_state()
+	BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(4, 2))
+	var first := _hq_siege(gs, Vector2i(2, 0), 1)
+	var second := _hq_siege(gs, Vector2i(0, 0), 1)
+	assert_array(_eliminations(_capture(gs, first))).is_empty()  # (0,0) still stands
+	assert_bool(gs.players[1].is_alive).is_true()
+	var events := _capture(gs, second)
+	assert_that(_eliminations(events)[0].reason).is_equal(&"hq_captured")
+	assert_object(_game_end(events)).is_not_null()
+
+
+func test_hq_loss_among_three_players_leaves_the_game_running() -> void:
+	var gs := BattleFixture.make_econ_state()
+	var third := PlayerState.new()
+	third.team = 2
+	gs.players.append(third)
+	BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(4, 2))
+	BattleFixture.spawn(gs, BattleFixture.TANK, 2, Vector2i(4, 0))
+	var capturer := _hq_siege(gs, Vector2i(2, 0), 1)
+	var events := _capture(gs, capturer)
+	var out := _eliminations(events)
+	assert_int(out.size()).is_equal(1)
+	assert_int(out[0].team).is_equal(1)
+	assert_object(_game_end(events)).is_null()  # red and team 2 fight on
+	assert_bool(gs.players[2].is_alive).is_true()

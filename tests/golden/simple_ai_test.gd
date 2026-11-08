@@ -188,3 +188,24 @@ func test_threat_map_shared_reach_cache() -> void:
 	assert_int(cache.size()).is_equal(1)
 	assert_bool(vs_infantry == ThreatMap.compute(view, 0, BattleFixture.INFANTRY)).is_true()
 	assert_bool(vs_tank == ThreatMap.compute(view, 0, BattleFixture.TANK)).is_true()
+
+
+func test_takes_the_enemy_hq_over_a_kill() -> void:
+	# An infantry one step from finishing a capture at (2,0), and a tank
+	# next to a 1-HP enemy tank. The kill is worth 10/100 * 7000 + 30%
+	# bounty = 2800; finishing an ordinary city only 1200, so the AI
+	# shoots. Make the tile blue's HQ and the capture wins outright.
+	var gs := BattleFixture.make_econ_state()
+	BattleFixture.claim(gs, Vector2i(2, 0), 1)
+	var inf := BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(2, 0))
+	gs.map.capture_progress[Vector2i(2, 0)] = 10
+	BattleFixture.spawn(gs, BattleFixture.TANK, 0, Vector2i(0, 2))
+	var weak := BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(1, 2))
+	weak.hp = 10
+	var ai := SimpleAI.new()
+	var on_city := ai.choose_action(StateView.for_team(gs, 0)) as UnitAction
+	assert_int(on_city.verb).is_equal(UnitAction.Verb.ATTACK)
+	gs.map.terrain[gs.map.idx(Vector2i(2, 0))] = BattleFixture.HQ
+	var on_hq := ai.choose_action(StateView.for_team(gs, 0)) as UnitAction
+	assert_int(on_hq.verb).is_equal(UnitAction.Verb.CAPTURE)
+	assert_int(on_hq.unit_id).is_equal(inf.id)

@@ -129,6 +129,10 @@ const DEMO_TERRAIN: Array[int] = [
 
 var state: GameState
 
+## The authored map the current match was started from, so "play again"
+## can start a fresh match on it. Null for states loaded directly.
+var _map_def: MapDefinition
+
 
 func _ready() -> void:
 	_ensure_ruleset()
@@ -154,6 +158,7 @@ func load_map(def: MapDefinition) -> void:
 		push_warning("Battle: map %s failed to build; keeping current state" % def.key)
 		return
 	load_state(gs)
+	_map_def = def
 
 
 ## Falls back to the classic ruleset when none was wired in the editor.
@@ -173,11 +178,24 @@ func randi_seed_for_match() -> int:
 ## the single entry point for demo, tests, and future save loading.
 func load_state(gs: GameState) -> void:
 	state = gs
+	_map_def = null
 	present(gs)
 	if event_player != null:
 		event_player.setup(gs)
 	if controller != null:
+		if not controller.restart_requested.is_connected(play_again):
+			controller.restart_requested.connect(play_again)
 		controller.setup(gs)
+
+
+## Starts a new match after one ends: a fresh seed on the same authored
+## map, or the demo when the finished state wasn't built from one.
+func play_again() -> void:
+	if _map_def != null:
+		load_map(_map_def)
+		return
+	_ensure_ruleset()
+	load_state(build_demo_state(ruleset))
 
 
 ## Pushes a full state into every render node.
