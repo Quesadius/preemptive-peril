@@ -89,4 +89,4 @@ If `godot` isn't on your `PATH`, point the script at it with `GODOT_BIN=/path/to
 
 ## License
 
-No license has been chosen yet. Until one is added, all rights are reserved.
+Preemptive Peril is released under the [MIT License](LICENSE), copyright Quesadius. The bundled [gdUnit4](addons/gdUnit4) test framework keeps its own MIT license.
