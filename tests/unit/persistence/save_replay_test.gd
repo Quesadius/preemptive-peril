@@ -211,12 +211,11 @@ func test_from_json_rejects_mistyped_fields() -> void:
 	]
 	for text: String in bad:
 		assert_object(SaveGame.from_json(text)).append_failure_message(text).is_null()
-	var ok := (
-		SaveGame
-		. from_json(
-			'{"version": 1, "seed": 42, "players": [{"team": 1, "co": "rook"}], "actions": [{"kind": "end"}]}'
-		)
+	var ok_text := (
+		'{"version": 1, "seed": 42, "players": [{"team": 1, "co": "rook"}],'
+		+ ' "actions": [{"kind": "end"}]}'
 	)
+	var ok := SaveGame.from_json(ok_text)
 	assert_object(ok).is_not_null()
 	assert_int(ok.rng_seed).is_equal(42)
 	assert_int(ok.player_setup.size()).is_equal(1)
