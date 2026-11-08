@@ -12,7 +12,7 @@ extends Node2D
 
 
 func _ready() -> void:
-	var battle := Battle.assemble()
+	var battle := Battle.assemble(Battle.default_art())
 	add_child(battle)
 	# The shipped boot plays the authored map when it exists; the
 	# code-built demo remains the fallback.

@@ -7,6 +7,9 @@ extends Node2D
 
 signal moved(coord: Vector2i)
 
+## Draws the sheet's corner-bracket cursor when set; a white box if not.
+@export var art_set: ArtSet
+
 var coord: Vector2i = Vector2i.ZERO
 
 var _map_size: Vector2i = Vector2i.ONE
@@ -42,5 +45,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _draw() -> void:
 	var half := MapRenderer.TILE_SIZE / 2.0
+	if art_set != null and art_set.sheet != null and art_set.cursor_tile != ArtSet.NONE:
+		var tile_rect := Rect2(-half, -half, half * 2.0, half * 2.0)
+		draw_texture_rect_region(art_set.sheet, tile_rect, art_set.region(art_set.cursor_tile))
+		return
 	var box := Rect2(-half + 2, -half + 2, half * 2 - 4, half * 2 - 4)
 	draw_rect(box, Color.WHITE, false, 2.0)

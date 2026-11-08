@@ -69,6 +69,9 @@ res://
 │       ├── deterministic_rng.gd     # seeded PRNG — replay-critical
 │       └── ids.gd                   # id allocation
 │
+├── assets/                          # art packs: a sprite sheet + its ArtSet .tres
+│   └── tiny_battle/                 # Kenney's Tiny Battle (CC0), the shipped art
+│
 ├── data/
 │   ├── schema/
 │   │   ├── ruleset.gd               # bundles every table; the balance root
@@ -106,7 +109,8 @@ res://
 │   ├── battle.tscn / battle.gd      # scene root, owns core state + controller
 │   ├── battle_controller.gd         # input state machine → Action
 │   ├── event_player.gd              # GameEvent list → animation coroutine
-│   ├── map_renderer.gd              # TileMapLayers, property ownership tinting
+│   ├── map_renderer.gd              # TileMapLayers: ground, details (roads/buildings), tint
+│   ├── art_set.gd                   # Resource: sheet tiles per terrain/unit key and team
 │   ├── unit_layer.gd                # spawns/pools UnitView by unit id
 │   ├── unit_view.tscn / unit_view.gd
 │   ├── overlay_layer.gd             # move range, attack range, path arrow (_draw)
@@ -726,4 +730,5 @@ These are cheap to decide now and expensive to change later:
 4. **Map size ceiling.** Affects whether naive algorithms are fine. Under 40×40, they are.
 5. **Multiplayer ambitions.** The action-log design makes hotseat trivial and networked play tractable, but only if you never let presentation mutate state. Decide now whether you're holding that line.
 6. **Art pipeline.** 16×16 or 32×32 tiles, team recoloring via palette swap shader or per-team sprite sheets. Palette swapping is far less asset work and worth setting up early.
+   **Decided:** 16×16 sheet art, drawn at 2× into the 32px world tiles so no world math changes. An `ArtSet` resource maps terrain/unit keys to sheet tiles, with per-team rows from the sheet itself (Tiny Battle ships each army in five colors), so no recolor shader. Without an ArtSet, or for any key it doesn't map, the flat-color placeholders draw — the tests run that way.
 ```

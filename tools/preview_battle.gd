@@ -8,7 +8,7 @@ extends SceneTree
 
 
 func _initialize() -> void:
-	var battle := Battle.assemble()
+	var battle := Battle.assemble(Battle.default_art())
 	root.add_child(battle)  # _ready loads the demo as the fallback
 	if OS.get_cmdline_user_args().has("demo"):
 		return

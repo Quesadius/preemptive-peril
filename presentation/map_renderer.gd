@@ -1,17 +1,21 @@
 class_name MapRenderer
 extends Node2D
-## Renders MapState into two TileMapLayers (§8): base terrain and a
-## property-ownership tint overlay. Pure view — reads state, never
-## mutates it; the terrain grid stays authoritative in MapState.
+## Renders MapState into TileMapLayers (§8). Pure view — reads state,
+## never mutates it; the terrain grid stays authoritative in MapState.
 ##
-## With no TileSet assigned in the editor, a flat-color placeholder set
-## is built in code so the project renders before any art exists. Assign
-## a real TileSet to `terrain_layer`/`property_layer` later and the
-## placeholder path never runs. Atlas layout (placeholder): one 32px tile
-## per terrain in ruleset order, then one translucent tile per team.
+## Two modes, chosen by `art_set`:
+## - Placeholder (no ArtSet): flat colors built in code — terrain_layer
+##   holds one 32px tile per terrain in ruleset order, property_layer a
+##   translucent team tint over owned properties.
+## - Art: terrain_layer holds ground (grass) and detail_layer what stands
+##   on it — road shapes, trees, hills, and buildings in their owner's
+##   color, which replace the tint. Sheet tiles are smaller than
+##   TILE_SIZE, so both layers are scaled up to match. Terrain the set
+##   doesn't map falls back to its flat color.
 
 const TILE_SIZE := 32
-const SOURCE_ID := 0
+const SOURCE_ID := 0  # flat-color placeholder tiles
+const ART_SOURCE := 1  # the ArtSet's sheet
 const MAX_TEAMS := 4
 
 const TEAM_COLORS: Array[Color] = [
@@ -35,6 +39,9 @@ const TERRAIN_COLORS: Dictionary[StringName, Color] = {
 
 @export var terrain_layer: TileMapLayer
 @export var property_layer: TileMapLayer
+## Art mode only: roads, trees, hills, and buildings over the ground.
+@export var detail_layer: TileMapLayer
+@export var art_set: ArtSet
 
 
 ## Center of `coord` in world pixels — the one grid-to-world mapping,
@@ -59,8 +66,13 @@ func render(state: GameState) -> void:
 	if terrain_layer == null or property_layer == null:
 		push_warning("MapRenderer: tile layers not wired; nothing to render")
 		return
+	if _art_ready():
+		_render_art(state)
+		return
 	if terrain_layer.tile_set == null:
-		var placeholder := _build_placeholder_tileset(state.ruleset)
+		var placeholder := TileSet.new()
+		placeholder.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
+		placeholder.add_source(_placeholder_source(state.ruleset, TILE_SIZE), SOURCE_ID)
 		terrain_layer.tile_set = placeholder
 		property_layer.tile_set = placeholder
 	terrain_layer.clear()
@@ -74,33 +86,110 @@ func render(state: GameState) -> void:
 			property_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_count + owner_team, 0))
 
 
-func _build_placeholder_tileset(ruleset: Ruleset) -> TileSet:
-	var terrain_count: int = ruleset.terrain_types.size()
-	var total: int = terrain_count + MAX_TEAMS
-	var img := Image.create_empty(total * TILE_SIZE, TILE_SIZE, false, Image.FORMAT_RGBA8)
-	for i: int in range(terrain_count):
-		var key: StringName = ruleset.terrain_types[i].key
-		var color: Color = TERRAIN_COLORS.get(key, Color(1.0, 0.0, 1.0))
-		_paint_tile(img, i, color)
-	for team: int in range(MAX_TEAMS):
-		var tint := team_color(team)
-		tint.a = 0.4
-		img.fill_rect(Rect2i((terrain_count + team) * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE), tint)
-	var source := TileSetAtlasSource.new()
-	source.texture = ImageTexture.create_from_image(img)
-	source.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	for i: int in range(total):
-		source.create_tile(Vector2i(i, 0))
+## Road-neighbor mask for `c` (ArtSet bits). A road that would dead-end
+## facing the board's edge runs off it instead; junctions and roads that
+## merely run along an edge don't sprout stubs off the board.
+func road_mask(state: GameState, c: Vector2i) -> int:
+	var mask: int = 0
+	var off_board: Array[int] = []
+	for n: Vector2i in Grid.neighbors(c):
+		var bit := ArtSet.dir_bit(n - c)
+		if not state.map.in_bounds(n):
+			off_board.append(bit)
+		elif _is_road(state, n):
+			mask |= bit
+	for bit: int in off_board:
+		if mask == ArtSet.opposite(bit):
+			mask |= bit
+	return mask
+
+
+func _is_road(state: GameState, c: Vector2i) -> bool:
+	if not state.map.in_bounds(c):
+		return false
+	var terrain: TerrainType = state.ruleset.terrain_types[state.map.terrain_at(c)]
+	return terrain.key == art_set.road_terrain
+
+
+func _art_ready() -> bool:
+	return art_set != null and art_set.sheet != null and detail_layer != null
+
+
+func _render_art(state: GameState) -> void:
+	if terrain_layer.tile_set == null:
+		var art_tiles := _build_art_tileset(state.ruleset)
+		terrain_layer.tile_set = art_tiles
+		detail_layer.tile_set = art_tiles
+		property_layer.tile_set = art_tiles
+	var s := art_set.draw_scale()
+	terrain_layer.scale = Vector2(s, s)
+	detail_layer.scale = Vector2(s, s)
+	terrain_layer.clear()
+	detail_layer.clear()
+	property_layer.clear()  # buildings carry their owner's color instead
+	for i: int in range(state.map.terrain.size()):
+		var c := Grid.from_idx(i, state.map.width)
+		var terrain_id: int = state.map.terrain[i]
+		var terrain: TerrainType = state.ruleset.terrain_types[terrain_id]
+		if not art_set.draws_on_ground(terrain.key):
+			terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
+			continue
+		terrain_layer.set_cell(c, ART_SOURCE, art_set.ground_tile(c))
+		var mask: int = road_mask(state, c) if terrain.key == art_set.road_terrain else 0
+		var detail := art_set.detail_tile(terrain.key, state.map.property_owner[i], mask)
+		if detail != ArtSet.NONE:
+			detail_layer.set_cell(c, ART_SOURCE, detail)
+
+
+## The art TileSet: the sheet, plus flat-color fallbacks at the sheet's
+## tile size for terrain the ArtSet doesn't map.
+func _build_art_tileset(ruleset: Ruleset) -> TileSet:
+	var px: int = art_set.tile_px
 	var tile_set := TileSet.new()
-	tile_set.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
-	tile_set.add_source(source, SOURCE_ID)
+	tile_set.tile_size = Vector2i(px, px)
+	tile_set.add_source(_placeholder_source(ruleset, px), SOURCE_ID)
+	var sheet := TileSetAtlasSource.new()
+	sheet.texture = art_set.sheet
+	sheet.texture_region_size = Vector2i(px, px)
+	@warning_ignore("integer_division")
+	var cols: int = art_set.sheet.get_width() / px
+	@warning_ignore("integer_division")
+	var rows: int = art_set.sheet.get_height() / px
+	for y: int in range(rows):
+		for x: int in range(cols):
+			sheet.create_tile(Vector2i(x, y))
+	tile_set.add_source(sheet, ART_SOURCE)
 	return tile_set
 
 
-func _paint_tile(img: Image, index: int, color: Color) -> void:
-	var x: int = index * TILE_SIZE
-	img.fill_rect(Rect2i(x, 0, TILE_SIZE, TILE_SIZE), color)
+## Flat colors at `px`: one tile per terrain in ruleset order, then one
+## translucent tint per team.
+func _placeholder_source(ruleset: Ruleset, px: int) -> TileSetAtlasSource:
+	var terrain_count: int = ruleset.terrain_types.size()
+	var total: int = terrain_count + MAX_TEAMS
+	var img := Image.create_empty(total * px, px, false, Image.FORMAT_RGBA8)
+	for i: int in range(terrain_count):
+		var key: StringName = ruleset.terrain_types[i].key
+		var color: Color = TERRAIN_COLORS.get(key, Color(1.0, 0.0, 1.0))
+		_paint_tile(img, i, color, px)
+	for team: int in range(MAX_TEAMS):
+		var tint := team_color(team)
+		tint.a = 0.4
+		img.fill_rect(Rect2i((terrain_count + team) * px, 0, px, px), tint)
+	var source := TileSetAtlasSource.new()
+	source.texture = ImageTexture.create_from_image(img)
+	source.texture_region_size = Vector2i(px, px)
+	for i: int in range(total):
+		source.create_tile(Vector2i(i, 0))
+	return source
+
+
+func _paint_tile(img: Image, index: int, color: Color, px: int) -> void:
+	var x: int = index * px
+	img.fill_rect(Rect2i(x, 0, px, px), color)
 	# A darker edge so the grid reads without real art.
 	var edge := color.darkened(0.25)
-	img.fill_rect(Rect2i(x, TILE_SIZE - 2, TILE_SIZE, 2), edge)
-	img.fill_rect(Rect2i(x + TILE_SIZE - 2, 0, 2, TILE_SIZE), edge)
+	@warning_ignore("integer_division")
+	var line: int = maxi(1, px / 16)
+	img.fill_rect(Rect2i(x, px - line, px, line), edge)
+	img.fill_rect(Rect2i(x + px - line, 0, line, px), edge)

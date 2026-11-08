@@ -9,6 +9,7 @@ extends Node2D
 ##   Battle (Node2D, battle.gd)
 ##   ├─ MapRenderer (Node2D, map_renderer.gd)
 ##   │  ├─ TerrainLayer (TileMapLayer)
+##   │  ├─ DetailLayer (TileMapLayer — art mode: roads, trees, buildings)
 ##   │  └─ PropertyLayer (TileMapLayer)
 ##   ├─ OverlayLayer (Node2D, overlay_layer.gd)
 ##   ├─ UnitLayer (Node2D, unit_layer.gd)
@@ -18,7 +19,7 @@ extends Node2D
 ##   ├─ EventPlayer (Node, event_player.gd)
 ##   └─ BattleController (Node, battle_controller.gd)
 ## Exports to wire: Battle → its seven children plus classic.tres;
-## MapRenderer → its two layers; CameraRig → Camera2D + Cursor;
+## MapRenderer → its three layers (+ an ArtSet); CameraRig → Camera2D + Cursor;
 ## EventPlayer → UnitLayer; BattleController → Cursor, OverlayLayer,
 ## UnitLayer, MapRenderer, EventPlayer.
 ## assemble() builds the same tree in code for tests and quick previews.
@@ -29,6 +30,7 @@ extends Node2D
 ## confirming an enemy unit inspects its ranges. Confirming an empty
 ## tile opens the system menu (powers, End Turn).
 
+const DEFAULT_ART_PATH := "res://assets/tiny_battle/tiny_battle.tres"
 const DEMO_WIDTH := 10
 const DEMO_HEIGHT := 8
 ## Terrain ids follow classic.tres order:
@@ -213,30 +215,47 @@ func present(gs: GameState) -> void:
 	camera_rig.center_on(center)
 
 
-## The whole battle tree built in code — used by headless tests and by
-## tools/preview_battle.gd for an editor-free look. battle.tscn remains
-## the real, editor-authored scene.
-static func assemble() -> Battle:
+## The art pack the shipped game draws with, or null if it's missing (the
+## flat-color placeholders then draw everything).
+static func default_art() -> ArtSet:
+	if not ResourceLoader.exists(DEFAULT_ART_PATH):
+		return null
+	return load(DEFAULT_ART_PATH) as ArtSet
+
+
+## The whole battle tree built in code — used by the shipped boot
+## (main.gd), tools/preview_battle.gd, and headless tests. `art` is the
+## sprite sheet to draw with; null (the tests' default) keeps the
+## flat-color placeholders.
+static func assemble(art: ArtSet = null) -> Battle:
 	var battle := Battle.new()
 	battle.name = "Battle"
 	var renderer := MapRenderer.new()
 	renderer.name = "MapRenderer"
 	var terrain := TileMapLayer.new()
 	terrain.name = "TerrainLayer"
+	var details := TileMapLayer.new()
+	details.name = "DetailLayer"
 	var property_overlay := TileMapLayer.new()
 	property_overlay.name = "PropertyLayer"
 	renderer.add_child(terrain)
+	renderer.add_child(details)
 	renderer.add_child(property_overlay)
 	renderer.terrain_layer = terrain
+	renderer.detail_layer = details
 	renderer.property_layer = property_overlay
+	renderer.art_set = art
 	var ranges := OverlayLayer.new()
 	ranges.name = "OverlayLayer"
+	ranges.art_set = art
 	var units := UnitLayer.new()
 	units.name = "UnitLayer"
+	units.art_set = art
 	var shroud := FogLayer.new()
 	shroud.name = "FogLayer"
 	var cur := Cursor.new()
 	cur.name = "Cursor"
+	cur.art_set = art
 	var rig := CameraRig.new()
 	rig.name = "CameraRig"
 	var cam := Camera2D.new()

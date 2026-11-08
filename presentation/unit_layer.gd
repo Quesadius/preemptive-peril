@@ -8,6 +8,8 @@ extends Node2D
 ## Optional scene for unit views (unit_view.tscn, wired in the editor).
 ## When absent, bare UnitView nodes with placeholder drawing are used.
 @export var unit_view_scene: PackedScene
+## Sprite sheet handed to every view; null keeps the placeholder bodies.
+@export var art_set: ArtSet
 
 var _views: Dictionary[int, UnitView] = {}
 
@@ -52,6 +54,10 @@ func view_for(unit_id: int) -> UnitView:
 
 
 func _make_view() -> UnitView:
+	var view: UnitView
 	if unit_view_scene != null:
-		return unit_view_scene.instantiate() as UnitView
-	return UnitView.new()
+		view = unit_view_scene.instantiate() as UnitView
+	else:
+		view = UnitView.new()
+	view.art = art_set
+	return view
