@@ -34,32 +34,58 @@ func _init() -> void:
 	status_label.position = Vector2(8, 4)
 	_root.add_child(status_label)
 	terrain_panel = TerrainInfoPanel.new()
-	terrain_panel.set_anchors_and_offsets_preset(
-		Control.PRESET_BOTTOM_LEFT, Control.PRESET_MODE_MINSIZE, 8
+	_pin(
+		terrain_panel,
+		Control.PRESET_BOTTOM_LEFT,
+		8,
+		Control.GROW_DIRECTION_END,
+		Control.GROW_DIRECTION_BEGIN
 	)
 	_root.add_child(terrain_panel)
 	unit_panel = UnitInfoPanel.new()
-	unit_panel.set_anchors_and_offsets_preset(
-		Control.PRESET_BOTTOM_RIGHT, Control.PRESET_MODE_MINSIZE, 8
+	_pin(
+		unit_panel,
+		Control.PRESET_BOTTOM_RIGHT,
+		8,
+		Control.GROW_DIRECTION_BEGIN,
+		Control.GROW_DIRECTION_BEGIN
 	)
 	_root.add_child(unit_panel)
 	damage_panel = DamagePreviewPanel.new()
-	damage_panel.set_anchors_and_offsets_preset(
-		Control.PRESET_CENTER_RIGHT, Control.PRESET_MODE_MINSIZE, 8
+	_pin(
+		damage_panel,
+		Control.PRESET_CENTER_RIGHT,
+		8,
+		Control.GROW_DIRECTION_BEGIN,
+		Control.GROW_DIRECTION_BOTH
 	)
 	_root.add_child(damage_panel)
 	action_menu = ActionMenu.new()
-	action_menu.set_anchors_and_offsets_preset(
-		Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE, 0
+	_pin(
+		action_menu,
+		Control.PRESET_CENTER,
+		0,
+		Control.GROW_DIRECTION_BOTH,
+		Control.GROW_DIRECTION_BOTH
 	)
 	_root.add_child(action_menu)
 	build_menu = BuildMenu.new()
-	build_menu.set_anchors_and_offsets_preset(Control.PRESET_CENTER, Control.PRESET_MODE_MINSIZE, 0)
+	_pin(
+		build_menu,
+		Control.PRESET_CENTER,
+		0,
+		Control.GROW_DIRECTION_BOTH,
+		Control.GROW_DIRECTION_BOTH
+	)
 	_root.add_child(build_menu)
 	banner = Label.new()
 	banner.add_theme_font_size_override("font_size", 28)
-	banner.set_anchors_and_offsets_preset(
-		Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 24
+	_pin(
+		banner,
+		Control.PRESET_CENTER_TOP,
+		24,
+		Control.GROW_DIRECTION_BOTH,
+		Control.GROW_DIRECTION_END
 	)
 	banner.visible = false
 	_root.add_child(banner)
@@ -69,6 +95,13 @@ func _init() -> void:
 	_result_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	result_panel.add_child(_result_label)
 	result_panel.visible = false
+	_pin(
+		result_panel,
+		Control.PRESET_CENTER,
+		0,
+		Control.GROW_DIRECTION_BOTH,
+		Control.GROW_DIRECTION_BOTH
+	)
 	_root.add_child(result_panel)
 	# Read-only panels let the pointer through to the map beneath them;
 	# only the menus take clicks.
@@ -136,6 +169,22 @@ func hide_result() -> void:
 ## The end-of-match message, for tests.
 func result_text() -> String:
 	return _result_label.text
+
+
+## Anchors `control` to a screen spot and sets which way it grows as its
+## content fills in. Panels are pinned while still empty, and Godot's
+## default growth (right and down) would push bottom- or right-anchored
+## panels off screen and hang centered ones off the center point.
+static func _pin(
+	control: Control,
+	preset: Control.LayoutPreset,
+	margin: int,
+	grow_h: Control.GrowDirection,
+	grow_v: Control.GrowDirection
+) -> void:
+	control.grow_horizontal = grow_h
+	control.grow_vertical = grow_v
+	control.set_anchors_and_offsets_preset(preset, Control.PRESET_MODE_MINSIZE, margin)
 
 
 ## Sets `control` and every Control inside it to ignore the pointer
