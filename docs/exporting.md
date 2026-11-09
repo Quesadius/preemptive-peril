@@ -38,3 +38,9 @@ The `export` job in `.github/workflows/ci.yml` builds Linux, Windows,
 and Web on every push after tests pass (the CI image bundles matching
 templates) and uploads them as the `builds` artifact. macOS and Android
 exports stay local — signing and SDKs don't live in CI.
+
+On pushes to `main`, the `pages` job also publishes the web build to
+GitHub Pages: https://quesadius.github.io/preemptive-peril/. The Web
+preset is single-threaded (`variant/thread_support=false`), so it needs
+no cross-origin-isolation headers and runs on any static host —
+turning threads on would break it on Pages.

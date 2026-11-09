@@ -10,7 +10,9 @@ A turn-based grid tactics game built in Godot 4 with GDScript. Command an army o
 
 ## Running the game
 
-You need [Godot](https://godotengine.org/) 4.6 or newer (CI uses 4.7).
+**Play in your browser:** https://quesadius.github.io/preemptive-peril/ — rebuilt from `main` on every push. It needs a keyboard, so play on a computer rather than a phone or tablet.
+
+To run it locally you need [Godot](https://godotengine.org/) 4.6 or newer (CI uses 4.7).
 
 - **From the editor:** open `project.godot` and press **F5**.
 - **From a terminal**, in the repository root:
