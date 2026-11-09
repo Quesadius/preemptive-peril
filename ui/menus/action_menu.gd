@@ -10,6 +10,9 @@ extends PanelContainer
 signal chosen(index: int)
 signal cancelled
 
+## Minimum row height (Hud raises it in touch mode); 0 = text height.
+var row_min_height: float = 0.0
+
 var _box: VBoxContainer
 var _options: Array[String] = []
 var _selected: int = 0
@@ -33,6 +36,8 @@ func open(options: Array[String]) -> void:
 		var label := Label.new()
 		label.text = option
 		label.mouse_filter = Control.MOUSE_FILTER_STOP
+		label.custom_minimum_size.y = row_min_height
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.gui_input.connect(_on_row_input.bind(_box.get_child_count()))
 		_box.add_child(label)
 	visible = true

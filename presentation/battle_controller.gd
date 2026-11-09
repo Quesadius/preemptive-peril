@@ -85,6 +85,8 @@ func setup(state: GameState) -> void:
 			hud.action_menu.cancelled.connect(_on_menu_cancelled)
 			hud.build_menu.chosen.connect(_on_build_chosen)
 			hud.build_menu.cancelled.connect(_on_build_cancelled)
+			hud.back_pressed.connect(cancel)
+			hud.danger_pressed.connect(toggle_danger)
 		hud.hide_result()
 		hud.refresh(_state)
 		if cursor != null:
@@ -109,6 +111,8 @@ func _refresh_fog() -> void:
 func toggle_danger() -> void:
 	_danger_on = not _danger_on
 	_refresh_danger()
+	if hud != null:
+		hud.set_danger_shown(_danger_on)
 
 
 func _refresh_danger() -> void:

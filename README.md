@@ -10,7 +10,7 @@ A turn-based grid tactics game built in Godot 4 with GDScript. Command an army o
 
 ## Running the game
 
-**Play in your browser:** https://quesadius.github.io/preemptive-peril/ — rebuilt from `main` on every push. It plays best on a computer with a mouse or keyboard; tablets work too, but phone-sized screens aren't laid out for yet.
+**Play in your browser:** https://quesadius.github.io/preemptive-peril/ — rebuilt from `main` on every push. It works on computers, tablets and phones, in landscape or portrait.
 
 To run it locally you need [Godot](https://godotengine.org/) 4.6 or newer (CI uses 4.7).
 
@@ -51,6 +51,8 @@ You command red (CO Vale). The computer commands blue (CO Rook) and plays its tu
 | Right-click | Back out one step |
 | Click outside a unit's range, off the targets while aiming, or away from a menu | Back out of it |
 | Drag | Pan the map |
+| Pinch | Zoom in and out around your fingers |
+| **Back** / **Danger** buttons | On touchscreens, stand in for Esc and D |
 
 What confirming (**Enter** or a click) does depends on what is under the cursor:
 

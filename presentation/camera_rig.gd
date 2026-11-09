@@ -10,6 +10,10 @@ extends Node2D
 ## whenever the view is larger than the map, the map stays centered
 ## instead of pinning to a corner.
 ##
+## Pinching zooms around the fingers (pinch, settle_zoom). When the
+## screen changes shape (a phone rotating), the view refits: zoomed out
+## only as far as needed from the last zoom the player chose.
+##
 ## Dragging with the pointer pans (pan_by); the camera then stays put
 ## until the cursor next moves, and never chases cursor moves the
 ## pointer made (Cursor.pointer_driven).
@@ -28,11 +32,18 @@ var _map_px: Vector2 = Vector2.ZERO
 ## Set by a pointer pan, cleared by the cursor's next move: the camera
 ## stays where it was dragged instead of snapping back to the cursor.
 var _follow_paused: bool = false
+## The zoom the player last chose (or the preferred default): map loads
+## and screen-shape changes fit the board from here, never above it.
+var _wanted_zoom: float = 0.0
 
 
 func _ready() -> void:
 	if cursor != null:
 		cursor.moved.connect(func(_c: Vector2i) -> void: _follow_paused = false)
+	get_viewport().size_changed.connect(refit)
+	# Script boots load a map before any _ready, and the screen may have
+	# been resized since: fit to the screen as it is now.
+	refit()
 
 
 ## Registers the map's pixel extent, then fits and centers the view.
@@ -41,7 +52,18 @@ func set_map(width: int, height: int) -> void:
 		push_warning("CameraRig: camera not wired")
 		return
 	_map_px = Vector2(width, height) * MapRenderer.TILE_SIZE
-	set_zoom(minf(zoom_level, _fit_zoom()))
+	refit()
+
+
+## Re-derives zoom and limits for the current screen: the player's
+## chosen zoom, or less if the whole board wouldn't otherwise fit.
+func refit() -> void:
+	if camera == null or _map_px == Vector2.ZERO:
+		return
+	if _wanted_zoom <= 0.0:
+		_wanted_zoom = zoom_level
+	set_zoom(minf(_wanted_zoom, _fit_zoom()))
+	_clamp_to_limits()
 
 
 ## Applies a zoom level, clamped to [zoom_min, zoom_max], and re-derives
@@ -57,11 +79,35 @@ func set_zoom(level: float) -> void:
 ## One step closer.
 func zoom_in() -> void:
 	set_zoom(zoom_level + zoom_step)
+	_wanted_zoom = zoom_level
 
 
 ## One step farther out.
 func zoom_out() -> void:
 	set_zoom(zoom_level - zoom_step)
+	_wanted_zoom = zoom_level
+
+
+## Zooms to `level` (clamped) so the world point that was under screen
+## point `from` ends up under `to` — a pinch keeps the board pinned
+## beneath the fingers as they spread and slide. Viewport coordinates.
+func pinch(level: float, from: Vector2, to: Vector2) -> void:
+	if camera == null:
+		return
+	var half := _base_view_size() / 2.0
+	var anchor := camera.position + (from - half) / zoom_level
+	set_zoom(level)
+	camera.position = anchor - (to - half) / zoom_level
+	_clamp_to_limits()
+	_follow_paused = true
+
+
+## Ends a pinch: snaps to the nearest zoom_step, anchored at `at`, so 2x
+## pixel art lands on whole screen pixels, and remembers the result as
+## the player's chosen zoom.
+func settle_zoom(at: Vector2) -> void:
+	pinch(snappedf(zoom_level, zoom_step), at, at)
+	_wanted_zoom = zoom_level
 
 
 ## Jumps the camera to a tile (start of match, turn banner, etc.).

@@ -6,6 +6,14 @@ extends CanvasLayer
 ## assign it to `theme_override` in the editor; until then a minimal
 ## dark theme is built in code.
 
+## Touch bar buttons: Back (one step back, like Esc) and the danger map
+## (like D) — the keys a touchscreen doesn't have.
+signal back_pressed
+signal danger_pressed
+
+## Menu row height in touch mode: a comfortable fingertip.
+const TOUCH_ROW_HEIGHT := 40.0
+
 @export var theme_override: Theme
 
 var status_label: Label
@@ -17,9 +25,12 @@ var build_menu: BuildMenu
 var banner: Label
 ## The end-of-match message; stays up until the next match starts.
 var result_panel: PanelContainer
+## Back and danger-map buttons, shown only in touch mode.
+var touch_bar: VBoxContainer
 
 var _root: Control
 var _result_label: Label
+var _danger_button: Button
 
 
 func _init() -> void:
@@ -103,6 +114,22 @@ func _init() -> void:
 		Control.GROW_DIRECTION_BOTH
 	)
 	_root.add_child(result_panel)
+	touch_bar = VBoxContainer.new()
+	touch_bar.add_theme_constant_override("separation", 8)
+	var back := _touch_button("Back")
+	back.pressed.connect(func() -> void: back_pressed.emit())
+	touch_bar.add_child(back)
+	_danger_button = _touch_button("Danger")
+	_danger_button.toggle_mode = true
+	_danger_button.pressed.connect(func() -> void: danger_pressed.emit())
+	touch_bar.add_child(_danger_button)
+	# Stacked under the status line, top-left: one button wide fits the
+	# side margin the centered board leaves on tablets and landscape
+	# phones, and portrait boards sit well below it.
+	touch_bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	touch_bar.position = Vector2(8, 36)
+	touch_bar.visible = false
+	_root.add_child(touch_bar)
 	# Read-only panels let the pointer through to the map beneath them;
 	# only the menus take clicks.
 	for panel: Control in [terrain_panel, unit_panel, damage_panel, result_panel]:
@@ -151,6 +178,20 @@ func on_events(events: Array[GameEvent]) -> void:
 			_flash_banner("Day %d — Team %d" % [started.day, started.team])
 
 
+## Touchscreen affordances on or off: the Back/Danger bar and taller,
+## finger-sized menu rows.
+func set_touch_mode(on: bool) -> void:
+	touch_bar.visible = on
+	var row_height := TOUCH_ROW_HEIGHT if on else 0.0
+	action_menu.row_min_height = row_height
+	build_menu.row_min_height = row_height
+
+
+## Mirrors the danger map's on/off state on its button.
+func set_danger_shown(on: bool) -> void:
+	_danger_button.set_pressed_no_signal(on)
+
+
 ## Shows the end-of-match message, centered, until hide_result().
 func show_result(text: String) -> void:
 	_result_label.text = text
@@ -185,6 +226,17 @@ static func _pin(
 	control.grow_horizontal = grow_h
 	control.grow_vertical = grow_v
 	control.set_anchors_and_offsets_preset(preset, Control.PRESET_MODE_MINSIZE, margin)
+
+
+static func _touch_button(text: String) -> Button:
+	var button := Button.new()
+	button.text = text
+	button.custom_minimum_size = Vector2(96, 44)
+	button.add_theme_font_size_override("font_size", 18)
+	# Never take keyboard focus, or Enter would press the button instead
+	# of confirming on the map.
+	button.focus_mode = Control.FOCUS_NONE
+	return button
 
 
 ## Sets `control` and every Control inside it to ignore the pointer

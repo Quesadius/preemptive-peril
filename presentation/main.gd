@@ -12,8 +12,17 @@ extends Node2D
 
 
 func _ready() -> void:
+	var touch := DisplayServer.is_touchscreen_available()
+	# Browsers and touch devices size the layout to the screen (phones get
+	# readable text and fill portrait or landscape); native desktop windows
+	# keep the fixed 1280x720 layout from project settings.
+	if OS.has_feature("web") or touch:
+		ScreenFit.attach(get_window())
 	var battle := Battle.assemble(Battle.default_art())
 	add_child(battle)
+	# Back and danger-map buttons, and finger-sized menu rows, wherever a
+	# touchscreen exists (phones, tablets, touch laptops).
+	battle.hud.set_touch_mode(touch)
 	# The shipped boot plays the authored map when it exists; the
 	# code-built demo remains the fallback.
 	var map_path := "res://data/maps/crossroads.tres"
