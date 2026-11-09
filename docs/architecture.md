@@ -117,6 +117,7 @@ res://
 │   ├── fog_layer.gd
 │   ├── cursor.tscn / cursor.gd
 │   ├── camera_rig.gd
+│   ├── pointer_input.gd             # mouse/touch → cursor, confirm/cancel, camera pan
 │   └── battle_animation.tscn        # optional cut-in combat animation
 │
 ├── ui/

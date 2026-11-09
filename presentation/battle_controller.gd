@@ -125,6 +125,18 @@ func phase() -> State:
 	return _phase
 
 
+## True when the selected unit can move to `tile` (false with nothing
+## selected) — PointerInput deselects on a tap outside the range.
+func can_reach(tile: Vector2i) -> bool:
+	return _reachable.has(tile)
+
+
+## True when `tile` is one of the targets (or drop tiles) on offer in
+## TARGET_SELECT — PointerInput backs out on a tap anywhere else.
+func is_target(tile: Vector2i) -> bool:
+	return _target_actions.has(tile)
+
+
 ## Confirm (ui_accept). What it means depends on the phase. Menu phases
 ## are driven by the menus themselves.
 func confirm() -> void:
@@ -486,7 +498,7 @@ static func result_text(won: bool, reason: StringName) -> String:
 		&"routed":
 			how = "The enemy army is routed." if won else "Your army is routed."
 	var headline := "Victory!" if won else "Defeat"
-	return "%s\n%s\nPress Enter to play again." % [headline, how]
+	return "%s\n%s\nPress Enter or click to play again." % [headline, how]
 
 
 ## Build-menu rows for the facility at `coord`: every type it can

@@ -10,7 +10,7 @@ A turn-based grid tactics game built in Godot 4 with GDScript. Command an army o
 
 ## Running the game
 
-**Play in your browser:** https://quesadius.github.io/preemptive-peril/ — rebuilt from `main` on every push. It needs a keyboard, so play on a computer rather than a phone or tablet.
+**Play in your browser:** https://quesadius.github.io/preemptive-peril/ — rebuilt from `main` on every push. It plays best on a computer with a mouse or keyboard; tablets work too, but phone-sized screens aren't laid out for yet.
 
 To run it locally you need [Godot](https://godotengine.org/) 4.6 or newer (CI uses 4.7).
 
@@ -43,7 +43,16 @@ You command red (CO Vale). The computer commands blue (CO Rook) and plays its tu
 | D | Show or hide the enemy danger map |
 | + / − or mouse wheel | Zoom |
 
-What **Enter** does depends on what is under the cursor:
+| Mouse or touch | Action |
+|---|---|
+| Hover | Move the cursor (and trace a route while a unit is selected) |
+| Click, or tap twice | Confirm on that tile. On touch the first tap aims the cursor, the second confirms |
+| Click a menu row | Choose it |
+| Right-click | Back out one step |
+| Click outside a unit's range, off the targets while aiming, or away from a menu | Back out of it |
+| Drag | Pan the map |
+
+What confirming (**Enter** or a click) does depends on what is under the cursor:
 
 - **One of your units** shows where it can move (blue). Trace a route with the cursor, then confirm a destination to open its orders: Wait, Attack, Capture, Load, Unload, Supply or Join, whichever apply there. Attacking snaps the cursor to a target and shows the damage forecast. A unit turns grey once it has acted.
 - **An enemy unit** shows where it can move (blue) and everything it could hit next turn (red).

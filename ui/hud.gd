@@ -70,6 +70,10 @@ func _init() -> void:
 	result_panel.add_child(_result_label)
 	result_panel.visible = false
 	_root.add_child(result_panel)
+	# Read-only panels let the pointer through to the map beneath them;
+	# only the menus take clicks.
+	for panel: Control in [terrain_panel, unit_panel, damage_panel, result_panel]:
+		_ignore_pointer(panel)
 
 
 ## Refreshes the status bar from the state (CO meter included).
@@ -132,6 +136,15 @@ func hide_result() -> void:
 ## The end-of-match message, for tests.
 func result_text() -> String:
 	return _result_label.text
+
+
+## Sets `control` and every Control inside it to ignore the pointer
+## (containers default to catching it).
+static func _ignore_pointer(control: Control) -> void:
+	control.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for child: Node in control.get_children():
+		if child is Control:
+			_ignore_pointer(child as Control)
 
 
 ## Hides every transient element (menus, forecast).

@@ -9,6 +9,10 @@ extends Node2D
 ## +/- and the mouse wheel adjust it live between zoom_min and zoom_max;
 ## whenever the view is larger than the map, the map stays centered
 ## instead of pinning to a corner.
+##
+## Dragging with the pointer pans (pan_by); the camera then stays put
+## until the cursor next moves, and never chases cursor moves the
+## pointer made (Cursor.pointer_driven).
 
 @export var camera: Camera2D
 @export var cursor: Cursor
@@ -21,6 +25,14 @@ extends Node2D
 @export var zoom_step: float = 0.5
 
 var _map_px: Vector2 = Vector2.ZERO
+## Set by a pointer pan, cleared by the cursor's next move: the camera
+## stays where it was dragged instead of snapping back to the cursor.
+var _follow_paused: bool = false
+
+
+func _ready() -> void:
+	if cursor != null:
+		cursor.moved.connect(func(_c: Vector2i) -> void: _follow_paused = false)
 
 
 ## Registers the map's pixel extent, then fits and centers the view.
@@ -59,8 +71,21 @@ func center_on(coord: Vector2i) -> void:
 	camera.position = MapRenderer.world_pos(coord)
 
 
+## Drags the view by a screen-space delta (a pointer pan), kept inside
+## the map's limits. The camera stops following the cursor until the
+## cursor next moves.
+func pan_by(screen_delta: Vector2) -> void:
+	if camera == null:
+		return
+	camera.position -= screen_delta / zoom_level
+	_clamp_to_limits()
+	_follow_paused = true
+
+
 func _process(_delta: float) -> void:
 	if camera == null or cursor == null:
+		return
+	if _follow_paused or cursor.pointer_driven:
 		return
 	var pos := camera.position
 	var to_cursor := cursor.position - pos
@@ -109,6 +134,14 @@ func _apply_limits() -> void:
 	else:
 		camera.limit_top = 0
 		camera.limit_bottom = int(_map_px.y)
+
+
+## Keeps the camera center where the view stays inside the limits.
+func _clamp_to_limits() -> void:
+	var half := _base_view_size() / zoom_level / 2.0
+	var lo := Vector2(camera.limit_left, camera.limit_top) + half
+	var hi := Vector2(camera.limit_right, camera.limit_bottom) - half
+	camera.position = camera.position.clamp(lo, hi.max(lo))
 
 
 ## The largest zoom_step-snapped zoom that shows the whole map.

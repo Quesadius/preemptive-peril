@@ -267,7 +267,7 @@ func test_game_over_announces_and_restarts() -> void:
 	assert_bool(b.state.units.has(doomed.id)).is_false()
 	assert_bool(b.hud.result_panel.visible).is_true()
 	assert_str(b.hud.result_text()).is_equal(
-		"Victory!\nThe enemy army is routed.\nPress Enter to play again."
+		"Victory!\nThe enemy army is routed.\nPress Enter or click to play again."
 	)
 	# Play is frozen: the cursor roams but selects nothing.
 	b.cursor.move_to(Vector2i(1, 2))
@@ -299,11 +299,11 @@ func test_hq_capture_wins_through_the_ui() -> void:
 	_choose(b, "Capture")
 	assert_that(_phase(b)).is_equal(BattleController.State.GAME_OVER)
 	assert_str(b.hud.result_text()).is_equal(
-		"Victory!\nEnemy HQ captured.\nPress Enter to play again."
+		"Victory!\nEnemy HQ captured.\nPress Enter or click to play again."
 	)
 	# The losing side's wording, for when the AI takes yours.
 	assert_str(BattleController.result_text(false, &"hq_captured")).is_equal(
-		"Defeat\nYour HQ has fallen.\nPress Enter to play again."
+		"Defeat\nYour HQ has fallen.\nPress Enter or click to play again."
 	)
 
 

@@ -15,6 +15,7 @@ var _selected: int = 0
 
 
 func _init() -> void:
+	mouse_filter = Control.MOUSE_FILTER_STOP  # clicks on the panel stay off the map
 	_box = VBoxContainer.new()
 	add_child(_box)
 	visible = false
@@ -30,6 +31,8 @@ func open(rows: Array[Dictionary]) -> void:
 	for row: Dictionary in _rows:
 		var label := Label.new()
 		label.text = row["label"]
+		label.mouse_filter = Control.MOUSE_FILTER_STOP
+		label.gui_input.connect(_on_row_input.bind(_box.get_child_count()))
 		if not row["affordable"]:
 			label.modulate = GREY
 		_box.add_child(label)
@@ -85,6 +88,26 @@ func _refresh() -> void:
 		var label := _box.get_child(i) as Label
 		var text: String = _rows[i]["label"]
 		label.text = ("> " if i == _selected else "  ") + text
+
+
+## Pointer: hovering a row highlights it; releasing a left click on it
+## chooses it (on release, like a button and like clicks on the map); a
+## right click backs out.
+func _on_row_input(event: InputEvent, index: int) -> void:
+	if event is InputEventMouseMotion:
+		if index != _selected:
+			_selected = index
+			_refresh()
+		return
+	var button := event as InputEventMouseButton
+	if button == null:
+		return
+	if button.button_index == MOUSE_BUTTON_LEFT and not button.pressed:
+		_selected = index
+		_refresh()
+		choose_selected()
+	elif button.button_index == MOUSE_BUTTON_RIGHT and button.pressed:
+		cancel_out()
 
 
 func _unhandled_input(event: InputEvent) -> void:

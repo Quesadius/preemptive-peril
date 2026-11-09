@@ -17,18 +17,22 @@ extends Node2D
 ##   ├─ CameraRig (Node2D at origin, camera_rig.gd)
 ##   │  └─ Camera2D (enabled)
 ##   ├─ EventPlayer (Node, event_player.gd)
-##   └─ BattleController (Node, battle_controller.gd)
+##   ├─ BattleController (Node, battle_controller.gd)
+##   └─ PointerInput (Node, pointer_input.gd)
 ## Exports to wire: Battle → its seven children plus classic.tres;
 ## MapRenderer → its three layers (+ an ArtSet); CameraRig → Camera2D + Cursor;
 ## EventPlayer → UnitLayer; BattleController → Cursor, OverlayLayer,
-## UnitLayer, MapRenderer, EventPlayer.
+## UnitLayer, MapRenderer, EventPlayer; PointerInput → Cursor,
+## BattleController, CameraRig.
 ## assemble() builds the same tree in code for tests and quick previews.
 ##
 ## Controls: arrows move the cursor, ui_accept (Enter/Space) selects,
 ## confirms destination, and picks targets; ui_cancel (Esc) steps back.
 ## +/- or the mouse wheel zooms. D toggles the enemy danger map;
 ## confirming an enemy unit inspects its ranges. Confirming an empty
-## tile opens the system menu (powers, End Turn).
+## tile opens the system menu (powers, End Turn). Mouse and touch go
+## through PointerInput: hover aims, click confirms, right-click
+## cancels, drag pans.
 
 const DEFAULT_ART_PATH := "res://assets/tiny_battle/tiny_battle.tres"
 const DEMO_WIDTH := 10
@@ -126,6 +130,7 @@ const DEMO_TERRAIN: Array[int] = [
 @export var camera_rig: CameraRig
 @export var event_player: EventPlayer
 @export var controller: BattleController
+@export var pointer_input: PointerInput
 @export var hud: Hud
 @export var fog_layer: FogLayer
 
@@ -284,6 +289,12 @@ static func assemble(art: ArtSet = null) -> Battle:
 	battle.add_child(rig)
 	battle.add_child(player)
 	battle.add_child(control)
+	var pointer := PointerInput.new()
+	pointer.name = "PointerInput"
+	pointer.cursor = cur
+	pointer.controller = control
+	pointer.camera_rig = rig
+	battle.add_child(pointer)
 	battle.add_child(ui)
 	battle.map_renderer = renderer
 	battle.overlay = ranges
@@ -293,6 +304,7 @@ static func assemble(art: ArtSet = null) -> Battle:
 	battle.camera_rig = rig
 	battle.event_player = player
 	battle.controller = control
+	battle.pointer_input = pointer
 	battle.hud = ui
 	return battle
 

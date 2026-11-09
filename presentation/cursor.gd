@@ -1,9 +1,8 @@
 class_name Cursor
 extends Node2D
 ## Grid-snapped cursor (§8). Arrow keys move it one tile at a time,
-## clamped to the map; `moved` drives the info panels once those exist.
-## Mouse/touch input and controller integration arrive with the
-## playable-loop milestone.
+## clamped to the map; `moved` drives the info panels and path preview.
+## PointerInput moves it for mouse and touch.
 
 signal moved(coord: Vector2i)
 
@@ -11,6 +10,10 @@ signal moved(coord: Vector2i)
 @export var art_set: ArtSet
 
 var coord: Vector2i = Vector2i.ZERO
+## True when the last move came from the pointer (hover or tap). The
+## camera doesn't chase those: hovering near the screen edge would
+## otherwise scroll the map out from under the pointer.
+var pointer_driven: bool = false
 
 var _map_size: Vector2i = Vector2i.ONE
 
@@ -21,8 +24,15 @@ func set_map(width: int, height: int) -> void:
 	move_to(coord)
 
 
+## True when `c` is on the map the cursor is bound to.
+func contains(c: Vector2i) -> bool:
+	return c.x >= 0 and c.y >= 0 and c.x < _map_size.x and c.y < _map_size.y
+
+
 ## Moves to `c`, clamped to the map. Emits `moved` only on a real change.
-func move_to(c: Vector2i) -> void:
+## `by_pointer` marks hover/tap moves (see pointer_driven).
+func move_to(c: Vector2i, by_pointer: bool = false) -> void:
+	pointer_driven = by_pointer
 	var clamped := c.clamp(Vector2i.ZERO, _map_size - Vector2i.ONE)
 	var changed := clamped != coord
 	coord = clamped
