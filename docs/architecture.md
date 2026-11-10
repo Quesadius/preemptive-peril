@@ -70,6 +70,7 @@ res://
 │       └── ids.gd                   # id allocation
 │
 ├── assets/                          # art packs: a sprite sheet + its ArtSet .tres
+│   ├── logo/                        # the game's logo, shown on the new-match screen
 │   └── tiny_battle/                 # Kenney's Tiny Battle (CC0), the shipped art
 │
 ├── data/
@@ -135,7 +136,7 @@ res://
 │   ├── menus/action_menu.tscn        # Wait / Attack / Capture / Load / Join / Supply
 │   ├── menus/build_menu.tscn
 │   ├── menus/pause_menu.tscn
-│   ├── screens/match_setup.gd       # new-match screen (code-built): map, fog, weather, sound, difficulty, funds, continue
+│   ├── screens/match_setup.gd       # new-match screen (code-built): logo, map, fog, weather, sound, difficulty, funds, continue
 │   ├── screens/title.tscn
 │   ├── screens/map_select.tscn
 │   ├── screens/co_select.tscn

@@ -1,11 +1,12 @@
 class_name MatchSetup
 extends CanvasLayer
-## The new-match screen: pick a map, switch fog of war, random weather
-## and sound on or off, choose the opponent's difficulty and each side's
-## starting funds, and start — or continue a saved match when one is
-## offered. Built in code from stock Buttons, so arrow keys and Enter,
-## the mouse, and touch all drive it through Godot's own focus handling.
-## It only reports choices; main.gd owns what they do.
+## The new-match screen: the game's logo, then pick a map, switch fog of
+## war, random weather and sound on or off, choose the opponent's
+## difficulty and each side's starting funds, and start — or continue a
+## saved match when one is offered. Built in code from stock Buttons, so
+## arrow keys and Enter, the mouse, and touch all drive it through
+## Godot's own focus handling. It only reports choices; main.gd owns
+## what they do.
 
 signal start_requested(options: MatchOptions)
 signal continue_requested
@@ -18,9 +19,29 @@ const ROW_HEIGHT := 44.0
 const MIN_WIDTH := 280.0
 const MAX_WIDTH := 560.0
 const SIDE_MARGIN := 16.0
+## The logo that heads the screen. Without it (the file missing) the
+## game's name is written out instead.
+const LOGO_PATH := "res://assets/logo/preemptive_peril.jpg"
+const GAME_NAME := "Preemptive Peril"
+## The screen's background: the colour of the logo's own margin, so the
+## logo sits on the screen instead of in a box.
+const BACKDROP := Color("0e151d")
+## On top of the column, the logo is as wide as the column unless that
+## would make it taller than this share of the screen.
+const LOGO_HEIGHT_SHARE := 0.36
+## A screen shorter than this has no height to spare for a logo on top
+## (a phone held sideways): there it sits beside the column, taking this
+## share of the width, as long as the column keeps its minimum.
+const BESIDE_BELOW_HEIGHT := 520.0
+const LOGO_WIDTH_SHARE := 0.4
+const BESIDE_GAP := 16.0
+const STACKED_GAP := 10.0
 
 var _maps: Array[MapDefinition] = []
 var _map_group := ButtonGroup.new()
+## Holds the logo and the column: one above the other, or side by side.
+var _layout: BoxContainer
+var _logo: TextureRect
 var _column: VBoxContainer
 var _map_row: HFlowContainer
 var _continue: Button
@@ -47,7 +68,7 @@ func _init() -> void:
 	layer = 20
 	visible = false
 	var backdrop := ColorRect.new()
-	backdrop.color = Color(0.09, 0.1, 0.14)
+	backdrop.color = BACKDROP
 	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(backdrop)
 	# Scrolls when the column is taller than the screen (small phones).
@@ -59,14 +80,29 @@ func _init() -> void:
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(center)
+	_layout = BoxContainer.new()
+	_layout.vertical = true
+	center.add_child(_layout)
+	_logo = TextureRect.new()
+	if ResourceLoader.exists(LOGO_PATH):
+		_logo.texture = load(LOGO_PATH) as Texture2D
+	_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE  # _fit() sizes it
+	_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	# Shown smaller than it was painted: smooth it rather than drop pixels.
+	_logo.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_logo.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_logo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_logo.visible = _logo.texture != null
+	_layout.add_child(_logo)
 	_column = VBoxContainer.new()
 	_column.add_theme_constant_override("separation", 10)
-	center.add_child(_column)
-	var title := Label.new()
-	title.text = "Preemptive Peril"
-	title.add_theme_font_size_override("font_size", 30)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_column.add_child(title)
+	_layout.add_child(_column)
+	if _logo.texture == null:
+		var title := Label.new()
+		title.text = GAME_NAME
+		title.add_theme_font_size_override("font_size", 30)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_column.add_child(title)
 	_continue = _button("")
 	_continue.visible = false
 	_continue.pressed.connect(func() -> void: continue_requested.emit())
@@ -223,6 +259,21 @@ func column_width() -> float:
 	return _column.custom_minimum_size.x
 
 
+## The logo's art (null when the file is missing) and the size it is
+## shown at, for tests.
+func logo_texture() -> Texture2D:
+	return _logo.texture
+
+
+func logo_size() -> Vector2:
+	return _logo.custom_minimum_size
+
+
+## Whether the logo sits beside the column rather than on top of it.
+func logo_is_beside() -> bool:
+	return not _layout.vertical
+
+
 func _on_start_pressed() -> void:
 	if selected_map() != null:
 		start_requested.emit(chosen_options())
@@ -268,12 +319,31 @@ static func _thousands(amount: int) -> String:
 	return out
 
 
-## Sizes the column to the screen: phones in portrait get a narrow one
-## whose rows wrap, wide screens one row of maps.
+## Sizes the column and the logo to the screen: phones in portrait get a
+## narrow column whose rows wrap, wide screens one row of maps. The logo
+## goes on top, or beside the column when the screen is too short.
 func _fit() -> void:
-	var available := get_viewport().get_visible_rect().size.x - 2.0 * SIDE_MARGIN
-	_column.custom_minimum_size.x = clampf(available, MIN_WIDTH, MAX_WIDTH)
-	_level_note.custom_minimum_size.x = _column.custom_minimum_size.x  # wraps to the column
+	var screen := get_viewport().get_visible_rect().size
+	var available := screen.x - 2.0 * SIDE_MARGIN
+	var column_width := clampf(available, MIN_WIDTH, MAX_WIDTH)
+	if _logo.texture != null:
+		var art := _logo.texture.get_size()
+		var shared := available - BESIDE_GAP
+		var beside := (
+			screen.y < BESIDE_BELOW_HEIGHT and shared * (1.0 - LOGO_WIDTH_SHARE) >= MIN_WIDTH
+		)
+		# The most room the logo may take here; it keeps its shape inside it.
+		var room := Vector2(column_width, screen.y * LOGO_HEIGHT_SHARE)
+		if beside:
+			room = Vector2(shared * LOGO_WIDTH_SHARE, screen.y - 2.0 * SIDE_MARGIN)
+		var logo_size := (art * minf(room.x / art.x, room.y / art.y)).round()
+		if beside:
+			column_width = clampf(shared - logo_size.x, MIN_WIDTH, MAX_WIDTH)
+		_layout.vertical = not beside
+		_layout.add_theme_constant_override("separation", BESIDE_GAP if beside else STACKED_GAP)
+		_logo.custom_minimum_size = logo_size
+	_column.custom_minimum_size.x = column_width
+	_level_note.custom_minimum_size.x = column_width  # wraps to the column
 
 
 ## Adds a row to the column whose buttons wrap when they run out of width.

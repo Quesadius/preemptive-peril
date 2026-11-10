@@ -12,6 +12,16 @@ func _screen() -> MatchSetup:
 	return screen
 
 
+## A screen inside a viewport of its own, to see it lay out at `size`.
+func _screen_sized(size: Vector2i) -> MatchSetup:
+	var viewport: SubViewport = auto_free(SubViewport.new())
+	viewport.size = size
+	add_child(viewport)
+	var screen := MatchSetup.new()
+	viewport.add_child(screen)
+	return screen
+
+
 ## Opens `screen` with the shipped maps and levels and these choices.
 func _open(screen: MatchSetup, remembered: MatchOptions, sound: bool = true) -> void:
 	screen.open(
@@ -139,3 +149,47 @@ func test_column_fits_the_screen() -> void:
 	var screen := _screen()
 	assert_that(get_viewport().get_visible_rect().size.x).is_equal(1280.0)
 	assert_float(screen.column_width()).is_equal(MatchSetup.MAX_WIDTH)
+
+
+func test_logo_heads_the_screen_in_place_of_the_name() -> void:
+	# The art is imported at 1120x624 (the 2000x1116 file, capped at 1120
+	# wide). On top of the column it may be as wide as the column (560)
+	# but no taller than 36% of the 720 screen: 259.2 tall, so
+	# 259.2 * 1120 / 624 = 465.2 wide.
+	var screen := _screen()
+	assert_that(screen.logo_texture()).is_not_null()
+	assert_that(screen.logo_texture().get_size()).is_equal(Vector2(1120, 624))
+	assert_bool(screen.logo_is_beside()).is_false()
+	assert_that(screen.logo_size()).is_equal(Vector2(465, 259))
+	# The name is in the art; nothing writes it out a second time.
+	for label: Node in screen.find_children("*", "Label", true, false):
+		assert_that((label as Label).text).is_not_equal(MatchSetup.GAME_NAME)
+
+
+func test_logo_fills_the_column_on_a_phone_held_upright() -> void:
+	# 390x844: the column is 390 - 2 * 16 = 358 wide and the logo with it,
+	# 358 * 624 / 1120 = 199.5 tall — well under 36% of the height.
+	var screen := _screen_sized(Vector2i(390, 844))
+	assert_bool(screen.logo_is_beside()).is_false()
+	assert_float(screen.column_width()).is_equal(358.0)
+	assert_that(screen.logo_size()).is_equal(Vector2(358, 199))
+
+
+func test_logo_moves_beside_the_column_on_a_phone_held_sideways() -> void:
+	# 844x390 is too short for a logo on top. Of the 844 - 2 * 16 - 16 = 796
+	# the two share, the logo takes 40%: 318.4 wide, 177.4 tall; the
+	# column gets the other 796 - 318 = 478.
+	var screen := _screen_sized(Vector2i(844, 390))
+	assert_bool(screen.logo_is_beside()).is_true()
+	assert_that(screen.logo_size()).is_equal(Vector2(318, 177))
+	assert_float(screen.column_width()).is_equal(478.0)
+
+
+func test_logo_stays_on_top_when_beside_would_squeeze_the_column() -> void:
+	# 480x400 is short, but (480 - 48) * 60% = 259 is under the column's
+	# 280 minimum: the logo stays on top, at 36% of the height (144 tall,
+	# 258 wide).
+	var screen := _screen_sized(Vector2i(480, 400))
+	assert_bool(screen.logo_is_beside()).is_false()
+	assert_float(screen.column_width()).is_equal(448.0)
+	assert_that(screen.logo_size()).is_equal(Vector2(258, 144))

@@ -29,7 +29,7 @@ To run it locally you need [Godot](https://godotengine.org/) 4.6 or newer (CI us
 
 ## Starting a match
 
-![The new-match screen: three maps to choose from, toggles for fog of war, random weather and sound, a difficulty button with each side's starting funds, and a Start button](docs/screenshots/setup.png)
+![The new-match screen: the Preemptive Peril logo above three maps to choose from, toggles for fog of war, random weather and sound, a difficulty button with each side's starting funds, and a Start button](docs/screenshots/setup.png)
 
 The game opens on the new-match screen. Pick a map, switch **fog of war**, **random weather** and **sound** on or off, set the balance, and start; your choices are remembered. Arrow keys and Enter, the mouse, and touch all work here.
 
