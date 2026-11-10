@@ -1,0 +1,64 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/air.tres" id="1_l0d6y"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_yliqv"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_b6pmq"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_xi7tq"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_8ojyq"]
+
+[sub_resource type="Resource" id="Resource_ho4uj"]
+script = ExtResource("2_yliqv")
+key = &"copter_missiles"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 25,
+&"apc": 60,
+&"artillery": 65,
+&"md_tank": 25,
+&"recon": 55,
+&"rockets": 65,
+&"tank": 55
+})
+
+[sub_resource type="Resource" id="Resource_m65d7"]
+script = ExtResource("3_b6pmq")
+key = &"copter_missiles"
+display_name = "Missiles"
+damage_table = SubResource("Resource_ho4uj")
+
+[sub_resource type="Resource" id="Resource_qxpw0"]
+script = ExtResource("2_yliqv")
+key = &"copter_mg"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 6,
+&"apc": 20,
+&"artillery": 25,
+&"copter": 65,
+&"infantry": 75,
+&"md_tank": 1,
+&"mech": 75,
+&"recon": 30,
+&"rockets": 35,
+&"tank": 6
+})
+
+[sub_resource type="Resource" id="Resource_2h5wb"]
+script = ExtResource("3_b6pmq")
+key = &"copter_mg"
+display_name = "MG"
+damage_table = SubResource("Resource_qxpw0")
+uses_ammo = false
+
+[resource]
+script = ExtResource("4_xi7tq")
+key = &"copter"
+display_name = "Copter"
+cost = 9000
+movement = 6
+movement_class = ExtResource("1_l0d6y")
+vision = 3
+fuel_per_turn = 2
+crashes_without_fuel = true
+primary_weapon = SubResource("Resource_m65d7")
+secondary_weapon = SubResource("Resource_2h5wb")
+max_ammo = 6
+built_at = Array[StringName]([&"airport"])

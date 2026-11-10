@@ -32,9 +32,9 @@ func test_property_overlay_tints_owned_only() -> void:
 	var owned := overlay.get_used_cells()
 	assert_array(owned).has_size(4)
 	assert_array(owned).contains([Vector2i(1, 1), Vector2i(1, 2), Vector2i(8, 1), Vector2i(8, 2)])
-	# Atlas x = terrain count (7, HQ included) + owning team.
-	assert_that(overlay.get_cell_atlas_coords(Vector2i(1, 1))).is_equal(Vector2i(7, 0))
-	assert_that(overlay.get_cell_atlas_coords(Vector2i(8, 1))).is_equal(Vector2i(8, 0))
+	# Atlas x = terrain count (8: HQ and airport included) + owning team.
+	assert_that(overlay.get_cell_atlas_coords(Vector2i(1, 1))).is_equal(Vector2i(8, 0))
+	assert_that(overlay.get_cell_atlas_coords(Vector2i(8, 1))).is_equal(Vector2i(9, 0))
 	# The neutral city carries no tint.
 	assert_int(overlay.get_cell_source_id(Vector2i(1, 5))).is_equal(-1)
 

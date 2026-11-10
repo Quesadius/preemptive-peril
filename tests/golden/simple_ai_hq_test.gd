@@ -107,3 +107,21 @@ func test_builds_an_answer_to_an_enemy_nothing_it_owns_can_hurt() -> void:
 	var action := _choose(gs, 0) as BuildAction
 	assert_object(action).is_not_null()
 	assert_int(action.unit_type_id).is_equal(BattleFixture.TANK)
+
+
+func test_low_on_fuel_a_flyer_turns_for_home() -> void:
+	# The fixture heli (move 3) burns 5 fuel a turn here and red's city at
+	# (0,0) services it, 4 tiles from the heli at (4,0). With 12 fuel
+	# (<= 4 + 2 turns x 8) it heads home — (1,0) gains 3 tiles — instead
+	# of toward the blue tank at (4,4); with a full tank it goes hunting.
+	var gs := BattleFixture.make_state()
+	gs.ruleset.unit_types[BattleFixture.HELI].fuel_per_turn = 5
+	var air: MovementClass = gs.ruleset.unit_types[BattleFixture.HELI].movement_class
+	gs.ruleset.terrain_types[BattleFixture.CITY].repairs_classes.append(air)
+	_paint(gs, Vector2i(0, 0), BattleFixture.CITY, 0)
+	var heli := BattleFixture.spawn(gs, BattleFixture.HELI, 0, Vector2i(4, 0))
+	BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(4, 4))
+	heli.fuel = 12
+	assert_that(_dest(_choose(gs, 0))).is_equal(Vector2i(1, 0))
+	heli.fuel = 99
+	assert_that(_dest(_choose(gs, 0))).is_equal(Vector2i(4, 3))

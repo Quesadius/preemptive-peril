@@ -44,7 +44,7 @@ static func preview(state: GameState, attacker_id: int, defender_id: int) -> Dam
 		base,
 		attacker.display_hp(),
 		defender.display_hp(),
-		_stars_at(state, defender.coord),
+		_stars_for(state, defender),
 		attack_mod(state, attacker),
 		defense_mod(state, defender)
 	)
@@ -64,7 +64,7 @@ static func preview(state: GameState, attacker_id: int, defender_id: int) -> Dam
 		counter_base,
 		dhp_after,
 		attacker.display_hp(),
-		_stars_at(state, attacker.coord),
+		_stars_for(state, attacker),
 		attack_mod(state, defender),
 		defense_mod(state, attacker)
 	)
@@ -87,7 +87,7 @@ static func resolve(state: GameState, attacker_id: int, defender_id: int) -> Arr
 		base,
 		attacker.display_hp(),
 		defender.display_hp(),
-		_stars_at(state, defender.coord),
+		_stars_for(state, defender),
 		attack_mod(state, attacker),
 		defense_mod(state, defender)
 	)
@@ -117,7 +117,7 @@ static func resolve(state: GameState, attacker_id: int, defender_id: int) -> Arr
 		counter_base,
 		defender.display_hp(),
 		attacker.display_hp(),
-		_stars_at(state, attacker.coord),
+		_stars_for(state, attacker),
 		attack_mod(state, defender),
 		defense_mod(state, attacker)
 	)
@@ -273,8 +273,18 @@ static func active_power(state: GameState, team: int) -> COPower:
 	return null
 
 
-static func _stars_at(state: GameState, coord: Vector2i) -> int:
-	return state.ruleset.terrain_types[state.map.terrain_at(coord)].defense_stars
+## Defense stars protecting `unit` where it stands: the terrain's, or
+## none for airborne units.
+static func _stars_for(state: GameState, unit: UnitState) -> int:
+	if is_airborne(state, unit):
+		return 0
+	return state.ruleset.terrain_types[state.map.terrain_at(unit.coord)].defense_stars
+
+
+## True when `unit`'s movement class flies (MovementClass.airborne).
+static func is_airborne(state: GameState, unit: UnitState) -> bool:
+	var mc: MovementClass = state.ruleset.unit_types[unit.type_id].movement_class
+	return mc != null and mc.airborne
 
 
 ## Direct-combat check: can this unit fire at range 1 (and therefore

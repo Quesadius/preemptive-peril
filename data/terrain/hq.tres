@@ -18,6 +18,7 @@ income = 1000
 repairs_classes = Array[ExtResource("1_k1fg8")]([ExtResource("2_jt2co"), ExtResource("3_xl6ms"), ExtResource("4_721ly"), ExtResource("5_cd88n")])
 is_hq = true
 move_costs = Dictionary[StringName, PackedInt32Array]({
+&"air": PackedInt32Array(1, 1, 2),
 &"boots": PackedInt32Array(1, 1, 1),
 &"foot": PackedInt32Array(1, 1, 1),
 &"tires": PackedInt32Array(1, 1, 1),

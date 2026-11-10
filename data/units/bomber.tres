@@ -1,0 +1,41 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/air.tres" id="1_yukno"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_is6af"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_1ronk"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_88wbi"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="5_rd7yh"]
+
+[sub_resource type="Resource" id="Resource_8kj73"]
+script = ExtResource("2_is6af")
+key = &"bombs"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 95,
+&"apc": 105,
+&"artillery": 105,
+&"infantry": 110,
+&"md_tank": 95,
+&"mech": 110,
+&"recon": 105,
+&"rockets": 105,
+&"tank": 105
+})
+
+[sub_resource type="Resource" id="Resource_6il23"]
+script = ExtResource("3_1ronk")
+key = &"bombs"
+display_name = "Bombs"
+damage_table = SubResource("Resource_8kj73")
+
+[resource]
+script = ExtResource("4_88wbi")
+key = &"bomber"
+display_name = "Bomber"
+cost = 22000
+movement = 7
+movement_class = ExtResource("1_yukno")
+fuel_per_turn = 5
+crashes_without_fuel = true
+primary_weapon = SubResource("Resource_6il23")
+max_ammo = 9
+built_at = Array[StringName]([&"airport"])

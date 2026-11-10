@@ -22,7 +22,9 @@ static func compute(state: GameState, team: int) -> PackedByteArray:
 			continue  # loaded units see nothing
 		var unit_type: UnitType = state.ruleset.unit_types[unit.type_id]
 		var under: TerrainType = state.ruleset.terrain_types[state.map.terrain_at(unit.coord)]
-		var radius: int = unit_type.vision + under.vision_bonus
+		var radius: int = unit_type.vision
+		if not Combat.is_airborne(state, unit):
+			radius += under.vision_bonus  # flyers aren't standing on the mountain
 		for c: Vector2i in Grid.coords_in_range(unit.coord, 0, radius):
 			if state.map.in_bounds(c):
 				mask[state.map.idx(c)] = 1
@@ -50,7 +52,7 @@ static func mask_for(state: GameState, team: int) -> PackedByteArray:
 
 
 ## True when `team` knows about `unit`: own units always; enemies when
-## their tile is lit — except on hiding terrain, which needs one of the
+## their tile is lit — except ground units on hiding terrain, which need one of the
 ## viewer's units adjacent. `mask` is an optional mask_for() result for
 ## `team`, computed here when omitted.
 static func sees_unit(
@@ -58,6 +60,8 @@ static func sees_unit(
 ) -> bool:
 	if not state.config.fog_enabled or unit.team == team:
 		return true
+	if Combat.is_airborne(state, unit):
+		return _lit(state, team, unit.coord, mask)  # nothing hides a flyer
 	return sees_at(state, team, unit.coord, mask)
 
 
@@ -79,6 +83,12 @@ static func sees_at(
 			var viewer := state.unit_at(n)
 			if viewer != null and viewer.team == team:
 				return true
+		return false
+	return _lit(state, team, coord, mask)
+
+
+static func _lit(state: GameState, team: int, coord: Vector2i, mask: PackedByteArray) -> bool:
+	if not state.map.in_bounds(coord):
 		return false
 	if mask.is_empty():
 		mask = compute(state, team)

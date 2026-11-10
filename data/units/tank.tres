@@ -29,6 +29,7 @@ damage_table = SubResource("Resource_ikxc1")
 script = ExtResource("2_msldx")
 key = &"tank_mg"
 base_damage = Dictionary[StringName, int]({
+&"copter": 10,
 &"infantry": 75,
 &"mech": 70,
 &"recon": 40

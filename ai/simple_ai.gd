@@ -15,6 +15,9 @@ extends AIPlayer
 ## unit on the HQ so it can't be entered, outbids ordinary business.
 ## Builds make sure the army has a capturer and an answer to every enemy
 ## type it can see before buying the priciest unit on offer.
+##
+## Fuel: units that burn fuel every turn (aircraft) fly back to a
+## property that services them before the tank runs dry.
 
 const END_TURN_SCORE := 1.0
 const KILL_BOUNTY := 0.3
@@ -40,6 +43,11 @@ const HQ_DEFENSE_ON_HQ_FACTOR := 5.0
 ## tile can't be captured. Cheaper units make the better doorstop.
 const HQ_GARRISON_SCORE := 1500.0
 const ADVANCE_PER_TILE := 12.0
+## A fuel-burning unit turns for home once its fuel is down to the trip
+## plus this many turns of flying; closing on home then counts
+## LOW_FUEL_URGENCY times an ordinary advance, enough to outbid pokes.
+const FUEL_RESERVE_TURNS := 2
+const LOW_FUEL_URGENCY := 10.0
 const BUILD_BASE_SCORE := 120.0
 ## Building a capturer when the army has none.
 const BUILD_CAPTURER_SCORE := 1000.0
@@ -54,6 +62,8 @@ var profile: AIProfile
 
 var _threat_cache: Dictionary[int, Dictionary] = {}
 var _objective_cache: Dictionary[int, Vector2i] = {}
+## Unit ids whose objective this decision is a refuel run.
+var _refueling: Dictionary[int, bool] = {}
 var _enemy_reach_cache: Dictionary[int, Dictionary] = {}
 ## Per-decision HQ watch (see _watch_hqs): HQ tiles we own and the raiders
 ## near them.
@@ -71,6 +81,7 @@ func _init(p_profile: AIProfile = null) -> void:
 func choose_action(view: StateView) -> Action:
 	_threat_cache = {}
 	_objective_cache = {}
+	_refueling = {}
 	_enemy_reach_cache = {}
 	_hq_watch_ready = false
 	var best: Action = EndTurnAction.new()
@@ -152,7 +163,8 @@ func _score_advance(view: StateView, ua: UnitAction) -> float:
 	if objective != NO_OBJECTIVE:
 		var gain: int = Grid.manhattan(unit.coord, objective) - Grid.manhattan(dest, objective)
 		if gain > 0:
-			score += gain * ADVANCE_PER_TILE * profile.advance_weight
+			var urgency_factor: float = LOW_FUEL_URGENCY if _refueling.has(unit.id) else 1.0
+			score += gain * ADVANCE_PER_TILE * profile.advance_weight * urgency_factor
 	# Stage 2: the threat map turns waiting into positioning. Healthy
 	# units shade away from danger; the wounded actively retreat.
 	var threat := _threat_for(view, unit.type_id)
@@ -280,12 +292,17 @@ func _objective_for(view: StateView, unit: UnitState) -> Vector2i:
 	return _objective_cache[unit.id]
 
 
-## Where `unit` marches when it has nothing better to do: at the nearest
-## raider when one threatens an HQ it is close to; otherwise capturers
+## Where `unit` marches when it has nothing better to do: home when it is
+## low on fuel; at the nearest raider when one threatens an HQ it is
+## close to; otherwise capturers
 ## head for the nearest property they don't own (an enemy HQ counting
 ## HQ_PULL_TILES closer) and everyone else for the nearest enemy.
 ## NO_OBJECTIVE when there is nothing to march on.
 func _find_objective(view: StateView, unit: UnitState) -> Vector2i:
+	var home := _refuel_point(view, unit)
+	if home != NO_OBJECTIVE:
+		_refueling[unit.id] = true
+		return home
 	_watch_hqs(view)
 	if not _raiders.is_empty() and _hq_distance(unit.coord) <= HQ_RESPONSE_RADIUS:
 		return _nearest_unit(unit.coord, _raiders)
@@ -312,6 +329,39 @@ func _find_objective(view: StateView, unit: UnitState) -> Vector2i:
 		if enemy.team != unit.team:
 			enemies.append(enemy)
 	return _nearest_unit(unit.coord, enemies)
+
+
+## The nearest property we own that services `unit`'s movement class,
+## when `unit` burns fuel every turn and holds no more than the trip
+## there plus FUEL_RESERVE_TURNS turns of flying. NO_OBJECTIVE otherwise.
+func _refuel_point(view: StateView, unit: UnitState) -> Vector2i:
+	var unit_type: UnitType = view.ruleset().unit_types[unit.type_id]
+	if unit_type.fuel_per_turn <= 0 or unit_type.movement_class == null:
+		return NO_OBJECTIVE
+	var map := view.map()
+	var best := NO_OBJECTIVE
+	var best_dist: int = 1 << 30
+	for i: int in range(map.property_owner.size()):
+		if map.property_owner[i] != unit.team:
+			continue
+		var terrain: TerrainType = view.ruleset().terrain_types[map.terrain[i]]
+		if not _services(terrain, unit_type.movement_class.key):
+			continue
+		var d: int = Grid.manhattan(unit.coord, Grid.from_idx(i, map.width))
+		if d < best_dist:
+			best_dist = d
+			best = Grid.from_idx(i, map.width)
+	if best == NO_OBJECTIVE:
+		return NO_OBJECTIVE
+	var reserve: int = FUEL_RESERVE_TURNS * (unit_type.fuel_per_turn + unit_type.movement)
+	return best if unit.fuel <= best_dist + reserve else NO_OBJECTIVE
+
+
+static func _services(terrain: TerrainType, class_key: StringName) -> bool:
+	for mc: MovementClass in terrain.repairs_classes:
+		if mc.key == class_key:
+			return true
+	return false
 
 
 ## The coord of the unit in `units` nearest `from` (first wins ties);

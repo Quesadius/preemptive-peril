@@ -15,11 +15,13 @@ const UNIT_KEYS: Array[StringName] = [
 	&"rockets",
 	&"anti_air",
 	&"apc",
+	&"copter",
+	&"bomber",
 ]
 const TERRAIN_KEYS: Array[StringName] = [
-	&"plains", &"road", &"forest", &"mountain", &"city", &"factory", &"hq"
+	&"plains", &"road", &"forest", &"mountain", &"city", &"factory", &"hq", &"airport"
 ]
-const CLASS_KEYS: Array[StringName] = [&"foot", &"boots", &"treads", &"tires"]
+const CLASS_KEYS: Array[StringName] = [&"foot", &"boots", &"treads", &"tires", &"air"]
 
 
 func _classic() -> Ruleset:
@@ -30,9 +32,9 @@ func _classic() -> Ruleset:
 
 func test_loads_with_expected_content() -> void:
 	var rs := _classic()
-	assert_int(rs.unit_types.size()).is_equal(9)
-	assert_int(rs.terrain_types.size()).is_equal(7)
-	assert_int(rs.movement_classes.size()).is_equal(4)
+	assert_int(rs.unit_types.size()).is_equal(11)
+	assert_int(rs.terrain_types.size()).is_equal(8)
+	assert_int(rs.movement_classes.size()).is_equal(5)
 	for i: int in range(UNIT_KEYS.size()):
 		assert_that(rs.unit_types[i].key).is_equal(UNIT_KEYS[i])
 	for i: int in range(TERRAIN_KEYS.size()):

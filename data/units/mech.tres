@@ -31,6 +31,7 @@ key = &"mech_mg"
 base_damage = Dictionary[StringName, int]({
 &"apc": 20,
 &"artillery": 32,
+&"copter": 9,
 &"infantry": 65,
 &"mech": 55,
 &"recon": 18,

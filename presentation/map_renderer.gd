@@ -34,6 +34,7 @@ const TERRAIN_COLORS: Dictionary[StringName, Color] = {
 	&"city": Color(0.78, 0.78, 0.8),
 	&"factory": Color(0.5, 0.5, 0.56),
 	&"hq": Color(0.93, 0.8, 0.35),
+	&"airport": Color(0.62, 0.66, 0.78),
 	&"sea": Color(0.25, 0.45, 0.75),
 }
 
