@@ -50,16 +50,19 @@ func test_prefers_finishing_capture_over_fighting() -> void:
 
 
 func test_builds_when_rich_preferring_big_units() -> void:
-	# With a capturer already in the army (spent for this turn) and no
-	# enemy in sight, the priciest affordable unit wins.
+	# With its two capturers already in the army (spent for this turn)
+	# and no enemy in sight, the priciest unit that can fight wins: the
+	# tank (7000). The dearer heli (9000) and the APC are unarmed, and the
+	# AI doesn't buy what can neither fight nor capture.
 	var gs := BattleFixture.make_econ_state()
 	BattleFixture.claim(gs, Vector2i(1, 1), 0)
 	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(4, 2)).has_acted = true
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(4, 1)).has_acted = true
 	gs.players[0].funds = 16000
 	var ai := SimpleAI.new()
 	var action := ai.choose_action(StateView.for_team(gs, 0)) as BuildAction
 	assert_object(action).is_not_null()
-	assert_int(action.unit_type_id).is_equal(BattleFixture.HELI)  # costliest affordable
+	assert_int(action.unit_type_id).is_equal(BattleFixture.TANK)
 
 
 func test_advances_toward_objective_when_idle() -> void:

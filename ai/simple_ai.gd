@@ -13,11 +13,20 @@ extends AIPlayer
 ## Headquarters: capturers are pulled toward an enemy HQ, and an enemy
 ## capturer near an HQ we own is a "raider" — hitting it, or parking a
 ## unit on the HQ so it can't be entered, outbids ordinary business.
-## Builds make sure the army has a capturer and an answer to every enemy
-## type it can see before buying the priciest unit on offer.
+## Builds keep a quota of capturers, then an answer to every enemy type
+## in sight, before buying the priciest unit on offer — and never a unit
+## that can neither fight nor capture (the AI doesn't run transports).
 ##
 ## Fuel: units that burn fuel every turn (aircraft) fly back to a
 ## property that services them before the tank runs dry.
+##
+## Tempo: evenly matched armies would otherwise stare at each other from
+## just outside range forever. While its army is worth at least
+## PRESS_RATIO of the enemy's it can see, the AI presses — healthy units
+## all but ignore the threat map when advancing. And nobody loiters
+## where they are in the way: on our own factories and airports (a
+## blocked one builds nothing), or, for units that can't capture, on a
+## property we have yet to take (our capturers need the tile).
 
 const END_TURN_SCORE := 1.0
 const KILL_BOUNTY := 0.3
@@ -48,9 +57,20 @@ const ADVANCE_PER_TILE := 12.0
 ## LOW_FUEL_URGENCY times an ordinary advance, enough to outbid pokes.
 const FUEL_RESERVE_TURNS := 2
 const LOW_FUEL_URGENCY := 10.0
+## Army value (cost x HP) relative to the visible enemy's from which the
+## AI presses, and how much of the threat shading a healthy unit still
+## feels while it does.
+const PRESS_RATIO := 0.8
+const PRESS_THREAT_FACTOR := 0.1
+## Moving off a tile the unit shouldn't block (see _in_the_way), and the
+## same again as a penalty for ending a move on one.
+const KEEP_CLEAR_SCORE := 200.0
 const BUILD_BASE_SCORE := 120.0
-## Building a capturer when the army has none.
+## Building a capturer while the army is under its quota: at least
+## MIN_CAPTURERS, and one per CAPTURER_SHARE units as it grows.
 const BUILD_CAPTURER_SCORE := 1000.0
+const MIN_CAPTURERS := 2
+const CAPTURER_SHARE := 8
 ## Building a unit that can hurt an enemy type nothing we own can.
 const BUILD_COUNTER_SCORE := 800.0
 ## Base damage from which a unit counts as an answer to an enemy type.
@@ -70,6 +90,8 @@ var _enemy_reach_cache: Dictionary[int, Dictionary] = {}
 var _hq_watch_ready: bool = false
 var _my_hqs: Array[Vector2i] = []
 var _raiders: Array[UnitState] = []
+## Per-decision tempo read (see _is_pressing): -1 unknown, else 0 or 1.
+var _pressing: int = -1
 
 
 func _init(p_profile: AIProfile = null) -> void:
@@ -84,6 +106,7 @@ func choose_action(view: StateView) -> Action:
 	_refueling = {}
 	_enemy_reach_cache = {}
 	_hq_watch_ready = false
+	_pressing = -1
 	var best: Action = EndTurnAction.new()
 	var best_score: float = END_TURN_SCORE
 	for action: Action in view.legal_actions():
@@ -131,6 +154,8 @@ func _score_attack(view: StateView, ua: UnitAction) -> float:
 	if Grid.manhattan(dest, ua.target_coord) == 1 and preview.can_counter:
 		var taken: int = mini(preview.counter_damage, attacker.hp)
 		value -= taken / 100.0 * attacker_cost * profile.caution
+	if _in_the_way(view, attacker, dest):
+		value -= KEEP_CLEAR_SCORE  # fire from somewhere that blocks nothing, if it's as good
 	return value + _garrison_bonus(view, attacker, dest)
 
 
@@ -159,6 +184,10 @@ func _score_advance(view: StateView, ua: UnitAction) -> float:
 	var score: float = _garrison_bonus(view, unit, dest)
 	if ua.path.size() < 2:
 		return score
+	if _in_the_way(view, unit, unit.coord):
+		score += KEEP_CLEAR_SCORE
+	if _in_the_way(view, unit, dest):
+		score -= KEEP_CLEAR_SCORE
 	var objective := _objective_for(view, unit)
 	if objective != NO_OBJECTIVE:
 		var gain: int = Grid.manhattan(unit.coord, objective) - Grid.manhattan(dest, objective)
@@ -171,9 +200,40 @@ func _score_advance(view: StateView, ua: UnitAction) -> float:
 	var here: int = threat.get(unit.coord, 0)
 	var there: int = threat.get(dest, 0)
 	var my_cost: int = view.ruleset().unit_types[unit.type_id].cost
-	var urgency: float = 1.5 if unit.display_hp() <= 4 else 0.5
+	var wounded: bool = unit.display_hp() <= 4
+	var urgency: float = 1.5 if wounded else 0.5
+	if not wounded and _is_pressing(view):
+		urgency *= PRESS_THREAT_FACTOR
 	score += (here - there) / 100.0 * my_cost * 0.01 * urgency * profile.caution * 10.0
 	return score
+
+
+## True when `unit` idling on `coord` would block something: our own
+## production (nothing can be built on an occupied tile), or — for a unit
+## that can't capture — a property we don't own, which our capturers
+## must be able to step onto.
+func _in_the_way(view: StateView, unit: UnitState, coord: Vector2i) -> bool:
+	var map := view.map()
+	var terrain: TerrainType = view.ruleset().terrain_types[map.terrain_at(coord)]
+	if map.property_owner[map.idx(coord)] == view.team:
+		return terrain.builds != &""
+	return terrain.capturable and not view.ruleset().unit_types[unit.type_id].capture_capable
+
+
+## True while our army is worth at least PRESS_RATIO of the enemy's we
+## can see (cost x HP share, cargo included). Read once per decision.
+func _is_pressing(view: StateView) -> bool:
+	if _pressing < 0:
+		var ours: float = 0.0
+		var theirs: float = 0.0
+		for u: UnitState in view.visible_units():
+			var worth: float = view.ruleset().unit_types[u.type_id].cost * u.hp / 100.0
+			if u.team == view.team:
+				ours += worth
+			else:
+				theirs += worth
+		_pressing = 1 if ours >= theirs * PRESS_RATIO else 0
+	return _pressing == 1
 
 
 ## Threat maps are expensive; one per unit type per decision.
@@ -183,24 +243,32 @@ func _threat_for(view: StateView, type_id: int) -> Dictionary[Vector2i, int]:
 	return _threat_cache[type_id]
 
 
-## Priciest affordable unit by default; a capturer first when the army
-## has none (cheapest wins), then an answer to any visible enemy type
-## nothing we own can hurt.
+## Priciest affordable unit by default; a capturer first while the army
+## is short of them (cheapest wins), then an answer to any visible enemy
+## type nothing we own can hurt. Units that can neither fight nor capture
+## score nothing.
 func _score_build(view: StateView, action: BuildAction) -> float:
 	var candidate: UnitType = view.ruleset().unit_types[action.unit_type_id]
+	var armed: bool = candidate.primary_weapon != null or candidate.secondary_weapon != null
+	if not armed and not candidate.capture_capable:
+		return 0.0
 	var score: float = BUILD_BASE_SCORE + candidate.cost * 0.01 * profile.expensive_unit_bias
-	if candidate.capture_capable and not _has_capturer(view):
+	if candidate.capture_capable and _short_of_capturers(view):
 		score += BUILD_CAPTURER_SCORE - candidate.cost * 0.02
 	if _answers_an_open_threat(view, candidate):
 		score += BUILD_COUNTER_SCORE
 	return score
 
 
-func _has_capturer(view: StateView) -> bool:
-	for mine: UnitState in view.my_units():
+## True while the army holds fewer capturers than its quota.
+func _short_of_capturers(view: StateView) -> bool:
+	var army := view.my_units()
+	var capturers: int = 0
+	for mine: UnitState in army:
 		if view.ruleset().unit_types[mine.type_id].capture_capable:
-			return true
-	return false
+			capturers += 1
+	@warning_ignore("integer_division")
+	return capturers < maxi(MIN_CAPTURERS, army.size() / CAPTURER_SHARE)
 
 
 ## True when some visible enemy type is hurt by `candidate` and by

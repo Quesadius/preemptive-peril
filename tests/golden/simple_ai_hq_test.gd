@@ -84,29 +84,52 @@ func test_parks_on_the_hq_when_a_raider_closes_in() -> void:
 	assert_that(_dest(_choose(calm, 0))).is_not_equal(Vector2i(0, 4))
 
 
-func test_builds_a_capturer_first_when_it_has_none() -> void:
+func test_builds_capturers_until_it_has_its_quota() -> void:
 	# No units at all: infantry scores 120 + 10 + (1000 - 20) = 1110,
-	# just ahead of the pricier ranger (1100) and far ahead of the heli.
+	# just ahead of the pricier ranger (1100) and far ahead of the tank.
 	var gs := BattleFixture.make_econ_state()
 	BattleFixture.claim(gs, Vector2i(1, 1), 0)
 	gs.players[0].funds = 16000
-	var action := _choose(gs, 0) as BuildAction
-	assert_object(action).is_not_null()
-	assert_int(action.unit_type_id).is_equal(BattleFixture.INFANTRY)
+	var first := _choose(gs, 0) as BuildAction
+	assert_object(first).is_not_null()
+	assert_int(first.unit_type_id).is_equal(BattleFixture.INFANTRY)
+	# One capturer is still under the quota of two; two is enough.
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 0)).has_acted = true
+	assert_int((_choose(gs, 0) as BuildAction).unit_type_id).is_equal(BattleFixture.INFANTRY)
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 1)).has_acted = true
+	assert_int((_choose(gs, 0) as BuildAction).unit_type_id).is_equal(BattleFixture.TANK)
 
 
 func test_builds_an_answer_to_an_enemy_nothing_it_owns_can_hurt() -> void:
-	# Red fields only an infantry (rifle vs tank: 5). Against a visible
-	# blue tank, a tank of its own (cannon 55) scores 120 + 70 + 800 = 990,
-	# ahead of artillery (980) and the heli that would otherwise win (210).
+	# Nothing in the fixture can hit a heli; here artillery shells can
+	# (60). Red's infantry can't, so against a visible blue heli the
+	# artillery (6000) scores 120 + 60 + 800 = 980 and outbids the tank
+	# (190) that would otherwise be bought.
 	var gs := BattleFixture.make_econ_state()
+	var shells := gs.ruleset.unit_types[BattleFixture.ARTILLERY].primary_weapon
+	shells.damage_table.base_damage[&"heli"] = 60
 	BattleFixture.claim(gs, Vector2i(1, 1), 0)
 	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 0)).has_acted = true
-	BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(4, 2))
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 1)).has_acted = true
+	BattleFixture.spawn(gs, BattleFixture.HELI, 1, Vector2i(4, 2))
 	gs.players[0].funds = 16000
 	var action := _choose(gs, 0) as BuildAction
 	assert_object(action).is_not_null()
-	assert_int(action.unit_type_id).is_equal(BattleFixture.TANK)
+	assert_int(action.unit_type_id).is_equal(BattleFixture.ARTILLERY)
+
+
+func test_never_buys_what_can_neither_fight_nor_capture() -> void:
+	# With only 5500 to spend and its capturers in place, the unarmed APC
+	# (5000) is the priciest thing on offer — and is passed over for the
+	# ranger (2000), the dearest affordable unit that can do anything.
+	var gs := BattleFixture.make_econ_state()
+	BattleFixture.claim(gs, Vector2i(1, 1), 0)
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 0)).has_acted = true
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 1)).has_acted = true
+	gs.players[0].funds = 5500
+	var action := _choose(gs, 0) as BuildAction
+	assert_object(action).is_not_null()
+	assert_int(action.unit_type_id).is_equal(BattleFixture.RANGER)
 
 
 func test_low_on_fuel_a_flyer_turns_for_home() -> void:

@@ -24,7 +24,7 @@ extends Node2D
 ## Preferred magnification; map loads zoom OUT from here only if the
 ## board wouldn't fit.
 @export var zoom_level: float = 3.0
-@export var zoom_min: float = 1.0
+@export var zoom_min: float = 0.5
 @export var zoom_max: float = 6.0
 @export var zoom_step: float = 0.5
 

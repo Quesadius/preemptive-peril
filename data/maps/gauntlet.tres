@@ -1,0 +1,44 @@
+[gd_resource type="Resource" script_class="MapDefinition" format=3]
+
+[ext_resource type="Script" path="res://data/schema/map_definition.gd" id="1_uex6y"]
+
+[resource]
+script = ExtResource("1_uex6y")
+key = &"gauntlet"
+display_name = "Gauntlet"
+width = 8
+height = 12
+terrain_palette = Array[StringName]([&"plains", &"road", &"forest", &"mountain", &"city", &"factory", &"hq", &"airport"])
+terrain = PackedInt32Array(0, 2, 6, 5, 0, 0, 3, 0, 0, 1, 1, 1, 1, 0, 3, 4, 2, 1, 0, 2, 1, 0, 0, 0, 4, 1, 0, 3, 1, 2, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 1, 2, 0, 0, 3, 1, 4, 4, 1, 3, 0, 0, 2, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 2, 1, 3, 0, 1, 4, 0, 0, 0, 1, 2, 0, 1, 2, 4, 3, 0, 1, 1, 1, 1, 0, 0, 3, 0, 0, 5, 6, 2, 0)
+property_owner = PackedInt32Array(-1, -1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, -1, -1)
+starting_units = Array[Dictionary]([{
+"team": 0,
+"type": &"infantry",
+"x": 5,
+"y": 10
+}, {
+"team": 1,
+"type": &"infantry",
+"x": 2,
+"y": 1
+}, {
+"team": 0,
+"type": &"infantry",
+"x": 3,
+"y": 10
+}, {
+"team": 1,
+"type": &"infantry",
+"x": 4,
+"y": 1
+}, {
+"team": 0,
+"type": &"tank",
+"x": 4,
+"y": 10
+}, {
+"team": 1,
+"type": &"tank",
+"x": 3,
+"y": 1
+}])
