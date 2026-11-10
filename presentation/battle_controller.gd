@@ -18,6 +18,9 @@ signal action_rejected(code: StringName)
 signal restart_requested
 ## The player chose "Quit to menu" in the system menu.
 signal quit_requested
+## An action — the player's or the AI's — was just applied to the state;
+## `events` is what it did. Emitted before the animation plays.
+signal action_committed(action: Action, events: Array[GameEvent])
 
 enum State {
 	IDLE,
@@ -449,6 +452,7 @@ func _commit(action: Action) -> void:
 		return
 	_phase = State.EXECUTING
 	var events := Rules.apply(_state, action)
+	action_committed.emit(action, events)
 	await event_player.play(events)
 	_reset_selection()
 	if map_renderer != null:
@@ -474,6 +478,7 @@ func _run_ai_turns() -> void:
 			push_warning("BattleController: AI chose an illegal action; ending its turn")
 			action = EndTurnAction.new()
 		var events := Rules.apply(_state, action)
+		action_committed.emit(action, events)
 		await event_player.play(events)
 		if map_renderer != null:
 			map_renderer.render(_state)

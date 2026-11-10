@@ -94,8 +94,10 @@ static func state_from_map(
 
 
 ## Replays `save` against the given resources. Refuses loudly (null) on
-## key mismatches or an illegal logged action — a save that half-loads
-## is worse than one that refuses (§11).
+## key mismatches, an illegal logged action, or an end state that doesn't
+## match the save's digest — a save that half-loads, or loads into a
+## different match than the one that was saved, is worse than one that
+## refuses (§11).
 static func run(save: SaveGame, ruleset: Ruleset, map_def: MapDefinition) -> GameState:
 	if save == null:
 		return null
@@ -104,6 +106,7 @@ static func run(save: SaveGame, ruleset: Ruleset, map_def: MapDefinition) -> Gam
 		return null
 	var config := GameConfig.new()
 	config.fog_enabled = save.fog_enabled
+	config.random_weather = save.weather_enabled
 	var gs := state_from_map(map_def, ruleset, config, save.rng_seed, save.player_setup)
 	if gs == null:
 		return null
@@ -113,7 +116,74 @@ static func run(save: SaveGame, ruleset: Ruleset, map_def: MapDefinition) -> Gam
 			push_error("save action %d is illegal against the rebuilt state" % i)
 			return null
 		Rules.apply(gs, action)
+	if save.digest != "" and digest(gs) != save.digest:
+		push_error("save replays to a different state than it recorded")
+		return null
 	return gs
+
+
+## A checksum of everything that makes two states the same match at the
+## same moment: the clock, weather, players, properties, capture
+## progress, every unit, and where the random sequence stands.
+static func digest(state: GameState) -> String:
+	var parts: Array[String] = [
+		(
+			"clock %d %d %d %d %d"
+			% [
+				state.day,
+				state.current_player,
+				state.weather,
+				state.weather_days_left,
+				state.next_unit_id
+			]
+		),
+		"next roll %d" % state.rng.clone().roll_range(0, 1 << 30),
+		"owners %s" % str(state.map.property_owner),
+	]
+	for p: PlayerState in state.players:
+		parts.append(
+			(
+				"player %d %d %d %d %d %d %s"
+				% [
+					p.team,
+					p.funds,
+					p.co_id,
+					p.power_meter,
+					p.power_state,
+					p.power_turns_left,
+					p.is_alive
+				]
+			)
+		)
+	var capturing: Array[Vector2i] = []
+	capturing.assign(state.map.capture_progress.keys())
+	capturing.sort()
+	for c: Vector2i in capturing:
+		parts.append("capture %s %d" % [c, state.map.capture_progress[c]])
+	var ids: Array[int] = []
+	ids.assign(state.units.keys())
+	ids.sort()
+	for id: int in ids:
+		var u: UnitState = state.units[id]
+		parts.append(
+			(
+				"unit %d %s %d %s %d %d %d %s %s %d %s"
+				% [
+					u.id,
+					state.ruleset.unit_types[u.type_id].key,
+					u.team,
+					u.coord,
+					u.hp,
+					u.fuel,
+					u.ammo,
+					u.has_moved,
+					u.has_acted,
+					u.carrier_id,
+					str(u.cargo)
+				]
+			)
+		)
+	return "\n".join(parts).md5_text()
 
 
 ## Why the definition's grids can't be indexed safely, or "" if they can.

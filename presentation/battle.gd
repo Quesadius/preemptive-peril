@@ -143,6 +143,9 @@ var state: GameState
 
 ## When true, play_again() and "Quit to menu" emit new_match_requested
 ## rather than restarting here.
+## Where the match in progress is written after every action, and
+## removed when it ends ("" = nowhere; main.gd sets it).
+var autosave_path: String = ""
 var hand_off_new_match: bool = false:
 	set(value):
 		hand_off_new_match = value
@@ -155,6 +158,9 @@ var hand_off_new_match: bool = false:
 var _map_def: MapDefinition
 var _fog: bool = false
 var _weather: bool = false
+## The match in progress as a save: its setup plus every action so far.
+## Null for states loaded directly, which aren't recorded.
+var _save: SaveGame
 
 
 func _ready() -> void:
@@ -172,21 +178,47 @@ func _ready() -> void:
 ## self-contained.
 func load_map(def: MapDefinition, fog: bool = false, weather: bool = false) -> void:
 	_ensure_ruleset()  # callable before _ready (script boots)
-	var config := GameConfig.new()
-	config.fog_enabled = fog
-	config.random_weather = weather
-	var setup: Array[Dictionary] = [
+	var save := SaveGame.new()
+	save.map_key = def.key
+	save.rng_seed = randi_seed_for_match()
+	save.fog_enabled = fog
+	save.weather_enabled = weather
+	save.player_setup = [
 		{"team": 0, "co": &"vale"},
 		{"team": 1, "co": &"rook", "is_ai": true},
 	]
-	var gs := Replay.state_from_map(def, ruleset, config, randi_seed_for_match(), setup)
+	var gs := Replay.run(save, ruleset, def)
 	if gs == null:
 		push_warning("Battle: map %s failed to build; keeping current state" % def.key)
 		return
-	load_state(gs)
+	_begin(def, save, gs)
+	_autosave()
+
+
+## Picks a saved match back up: replays its log on its map and carries on
+## recording into it. False (changing nothing) when the save can't be
+## replayed here — an unknown map, or rules that no longer agree with it.
+func resume(save: SaveGame) -> bool:
+	_ensure_ruleset()
+	var def := MapCatalog.find(save.map_key)
+	if def == null:
+		return false
+	var gs := Replay.run(save, ruleset, def)
+	if gs == null:
+		return false
+	_begin(def, save, gs)
+	return true
+
+
+## Binds a match that has a map and a save behind it. The save is in
+## place before the controller sees the state: an AI that is to move
+## starts at once, and its actions must be recorded.
+func _begin(def: MapDefinition, save: SaveGame, gs: GameState) -> void:
 	_map_def = def
-	_fog = fog
-	_weather = weather
+	_fog = save.fog_enabled
+	_weather = save.weather_enabled
+	_save = save
+	_bind(gs)
 
 
 ## Falls back to the classic ruleset when none was wired in the editor.
@@ -205,8 +237,13 @@ func randi_seed_for_match() -> int:
 ## Presents `gs` and rebinds the controller and event player to it —
 ## the single entry point for demo, tests, and future save loading.
 func load_state(gs: GameState) -> void:
-	state = gs
 	_map_def = null
+	_save = null
+	_bind(gs)
+
+
+func _bind(gs: GameState) -> void:
+	state = gs
 	present(gs)
 	if event_player != null:
 		event_player.setup(gs)
@@ -214,6 +251,7 @@ func load_state(gs: GameState) -> void:
 		if not controller.restart_requested.is_connected(play_again):
 			controller.restart_requested.connect(play_again)
 			controller.quit_requested.connect(_on_quit_requested)
+			controller.action_committed.connect(_on_action_committed)
 		controller.offer_quit = hand_off_new_match
 		controller.setup(gs)
 
@@ -231,6 +269,26 @@ func play_again() -> void:
 		return
 	_ensure_ruleset()
 	load_state(build_demo_state(ruleset))
+
+
+## Records each applied action; the autosave follows it, and is removed
+## once the match is decided (there is nothing left to continue).
+func _on_action_committed(action: Action, events: Array[GameEvent]) -> void:
+	if _save == null:
+		return
+	_save.record(action, ruleset)
+	_save.digest = Replay.digest(state)
+	for e: GameEvent in events:
+		if e is Events.GameEnded:
+			if autosave_path != "":
+				SaveGame.delete_file(autosave_path)
+			return
+	_autosave()
+
+
+func _autosave() -> void:
+	if autosave_path != "" and _save != null:
+		_save.write_file(autosave_path)
 
 
 func _on_quit_requested() -> void:
