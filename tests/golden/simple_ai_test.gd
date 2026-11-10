@@ -50,8 +50,11 @@ func test_prefers_finishing_capture_over_fighting() -> void:
 
 
 func test_builds_when_rich_preferring_big_units() -> void:
+	# With a capturer already in the army (spent for this turn) and no
+	# enemy in sight, the priciest affordable unit wins.
 	var gs := BattleFixture.make_econ_state()
 	BattleFixture.claim(gs, Vector2i(1, 1), 0)
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(4, 2)).has_acted = true
 	gs.players[0].funds = 16000
 	var ai := SimpleAI.new()
 	var action := ai.choose_action(StateView.for_team(gs, 0)) as BuildAction
