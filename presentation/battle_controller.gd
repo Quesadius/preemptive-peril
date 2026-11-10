@@ -16,6 +16,8 @@ extends Node
 
 signal action_rejected(code: StringName)
 signal restart_requested
+## The player chose "Quit to menu" in the system menu.
+signal quit_requested
 
 enum State {
 	IDLE,
@@ -46,6 +48,9 @@ const VERB_LABELS: Dictionary[int, String] = {
 @export var event_player: EventPlayer
 @export var hud: Hud
 @export var fog_layer: FogLayer
+## Adds "Quit to menu" to the system menu (set when something is
+## listening for quit_requested).
+@export var offer_quit: bool = false
 
 var _state: GameState
 var _phase: State = State.IDLE
@@ -240,6 +245,9 @@ func _confirm_idle() -> void:
 				labels.append("Power: %s" % power.display_name)
 			_system_entries.append(EndTurnAction.new())
 			labels.append("End Turn")
+			if offer_quit:
+				_system_entries.append(null)  # not an Action: handled in _on_menu_chosen
+				labels.append("Quit to menu")
 			_phase = State.ACTION_MENU
 			hud.action_menu.open(labels)
 			return
@@ -309,6 +317,10 @@ func _on_menu_chosen(index: int) -> void:
 		_menu_system = false
 		var entry: Action = _system_entries[index]
 		_system_entries = []
+		if entry == null:
+			_phase = State.IDLE
+			quit_requested.emit()
+			return
 		_commit(entry)
 		return
 	var verb: int = _dest_verbs[index]

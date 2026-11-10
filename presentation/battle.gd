@@ -34,6 +34,11 @@ extends Node2D
 ## through PointerInput: hover aims, click confirms, right-click
 ## cancels, drag pans.
 
+## Emitted instead of restarting in place when hand_off_new_match is
+## set: a finished match was acknowledged, or the player quit to the
+## menu. main.gd answers with the match setup screen.
+signal new_match_requested
+
 const DEFAULT_ART_PATH := "res://assets/tiny_battle/tiny_battle.tres"
 const DEMO_WIDTH := 10
 const DEMO_HEIGHT := 8
@@ -136,9 +141,20 @@ const DEMO_TERRAIN: Array[int] = [
 
 var state: GameState
 
-## The authored map the current match was started from, so "play again"
-## can start a fresh match on it. Null for states loaded directly.
+## When true, play_again() and "Quit to menu" emit new_match_requested
+## rather than restarting here.
+var hand_off_new_match: bool = false:
+	set(value):
+		hand_off_new_match = value
+		if controller != null:
+			controller.offer_quit = value
+
+## The authored map and options the current match was started with, so
+## "play again" can start a fresh match the same way. The map is null
+## for states loaded directly.
 var _map_def: MapDefinition
+var _fog: bool = false
+var _weather: bool = false
 
 
 func _ready() -> void:
@@ -150,12 +166,15 @@ func _ready() -> void:
 		load_state(build_demo_state(ruleset))
 
 
-## Starts a match on an authored map: Vale (human) vs Rook (AI), fog per
-## the player's settings default. Used by main.gd for the shipped boot;
-## _ready keeps the code-built demo so tests stay self-contained.
-func load_map(def: MapDefinition) -> void:
+## Starts a match on an authored map: Vale (human) vs Rook (AI), with
+## fog of war and random weather as asked. Used by main.gd for the
+## shipped boot; _ready keeps the code-built demo so tests stay
+## self-contained.
+func load_map(def: MapDefinition, fog: bool = false, weather: bool = false) -> void:
 	_ensure_ruleset()  # callable before _ready (script boots)
 	var config := GameConfig.new()
+	config.fog_enabled = fog
+	config.random_weather = weather
 	var setup: Array[Dictionary] = [
 		{"team": 0, "co": &"vale"},
 		{"team": 1, "co": &"rook", "is_ai": true},
@@ -166,6 +185,8 @@ func load_map(def: MapDefinition) -> void:
 		return
 	load_state(gs)
 	_map_def = def
+	_fog = fog
+	_weather = weather
 
 
 ## Falls back to the classic ruleset when none was wired in the editor.
@@ -192,17 +213,29 @@ func load_state(gs: GameState) -> void:
 	if controller != null:
 		if not controller.restart_requested.is_connected(play_again):
 			controller.restart_requested.connect(play_again)
+			controller.quit_requested.connect(_on_quit_requested)
+		controller.offer_quit = hand_off_new_match
 		controller.setup(gs)
 
 
-## Starts a new match after one ends: a fresh seed on the same authored
-## map, or the demo when the finished state wasn't built from one.
+## Starts a new match after one ends: hands off to whoever listens when
+## hand_off_new_match is set; otherwise a fresh seed on the same authored
+## map with the same options, or the demo when the finished state wasn't
+## built from a map.
 func play_again() -> void:
+	if hand_off_new_match:
+		new_match_requested.emit()
+		return
 	if _map_def != null:
-		load_map(_map_def)
+		load_map(_map_def, _fog, _weather)
 		return
 	_ensure_ruleset()
 	load_state(build_demo_state(ruleset))
+
+
+func _on_quit_requested() -> void:
+	if hand_off_new_match:
+		new_match_requested.emit()
 
 
 ## Pushes a full state into every render node.

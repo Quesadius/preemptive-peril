@@ -11,6 +11,9 @@ const DEFAULTS: Dictionary[String, Variant] = {
 	"sfx_volume": 0.8,
 	"music_volume": 0.6,
 	"fog_default": false,
+	"weather_default": false,
+	"sound_on": true,
+	"last_map": "crossroads",
 }
 
 var _values: Dictionary[String, Variant] = {}

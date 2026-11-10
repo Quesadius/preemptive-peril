@@ -145,9 +145,23 @@ func refresh(state: GameState) -> void:
 	if co != null:
 		var burning := " *" if player.power_state != PlayerState.PowerState.NONE else ""
 		co_tag = "   %s  Meter %d%s" % [co.display_name, player.power_meter, burning]
+	var sky := ""
+	if state.weather != GameState.Weather.CLEAR:
+		sky = "   %s" % weather_name(state.weather)
 	status_label.text = (
-		"Day %d   Team %d%s   Funds %d%s" % [state.day, player.team, ai_tag, player.funds, co_tag]
+		"Day %d   Team %d%s   Funds %d%s%s"
+		% [state.day, player.team, ai_tag, player.funds, co_tag, sky]
 	)
+
+
+## "Rain", "Snow" or "Clear" for a GameState.Weather value.
+static func weather_name(weather: int) -> String:
+	match weather:
+		GameState.Weather.RAIN:
+			return "Rain"
+		GameState.Weather.SNOW:
+			return "Snow"
+	return "Clear"
 
 
 ## Points the info panels at `coord` (§9: they follow the cursor),
@@ -176,6 +190,13 @@ func on_events(events: Array[GameEvent]) -> void:
 		if e is Events.TurnStarted:
 			var started := e as Events.TurnStarted
 			_flash_banner("Day %d — Team %d" % [started.day, started.team])
+		elif e is Events.WeatherChanged:
+			# Arrives after the day's TurnStarted, so the weather is what stays up.
+			var turn := e as Events.WeatherChanged
+			if turn.new_weather == GameState.Weather.CLEAR:
+				_flash_banner("The skies clear")
+			else:
+				_flash_banner("%s — slower going" % weather_name(turn.new_weather))
 
 
 ## Touchscreen affordances on or off: the Back/Danger bar and taller,
