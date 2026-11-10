@@ -48,7 +48,7 @@ func test_ground_details_and_fallback() -> void:
 	assert_that(detail.get_cell_atlas_coords(Vector2i(2, 0))).is_equal(Vector2i(5, 0))
 	# Buildings in their owners' colors: neutral factory, blue HQ, red city.
 	assert_that(detail.get_cell_atlas_coords(Vector2i(0, 2))).is_equal(Vector2i(11, 0))
-	assert_that(detail.get_cell_atlas_coords(Vector2i(1, 2))).is_equal(Vector2i(13, 2))
+	assert_that(detail.get_cell_atlas_coords(Vector2i(1, 2))).is_equal(Vector2i(14, 2))
 	assert_that(detail.get_cell_atlas_coords(Vector2i(2, 2))).is_equal(Vector2i(8, 3))
 	# Ownership shows on the buildings, so the tint layer stays empty.
 	assert_array(renderer.property_layer.get_used_cells()).is_empty()

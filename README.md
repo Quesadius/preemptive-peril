@@ -83,7 +83,7 @@ What confirming (**Enter** or a click) does depends on what is under the cursor:
 
 **Fog and weather.** Under fog of war you see only what your units and properties can see; forests hide ground units until you're next to them, and moving into an unseen enemy springs an ambush that ends the move. Random weather brings spells of rain or snow that slow movement.
 
-**Winning.** Each side has an HQ, the domed building in its home base. Capture the enemy HQ and you win on the spot. A player is also eliminated when they have no units left and nowhere to build more. When the match ends, a Victory or Defeat message appears; press **Enter** or click to go back to the new-match screen.
+**Winning.** Each side has an HQ, the spired building in its home base. Capture the enemy HQ and you win on the spot. A player is also eliminated when they have no units left and nowhere to build more. When the match ends, a Victory or Defeat message appears; press **Enter** or click to go back to the new-match screen.
 
 ## Development
 

@@ -14,10 +14,10 @@ terrain_tiles = Dictionary[StringName, Vector2i]({
 })
 road_tiles = Array[Vector2i]([Vector2i(0, 6), Vector2i(0, 9), Vector2i(1, 6), Vector2i(1, 9), Vector2i(0, 7), Vector2i(0, 8), Vector2i(1, 7), Vector2i(1, 8), Vector2i(3, 6), Vector2i(3, 9), Vector2i(2, 6), Vector2i(2, 9), Vector2i(3, 7), Vector2i(3, 8), Vector2i(2, 7), Vector2i(2, 8)])
 building_columns = Dictionary[StringName, int]({
-&"airport": 14,
+&"airport": 15,
 &"city": 8,
 &"factory": 11,
-&"hq": 13
+&"hq": 14
 })
 team_building_rows = Array[int]([3, 2, 1, 4])
 unit_columns = Dictionary[StringName, int]({

@@ -76,8 +76,12 @@ func test_buildings_take_their_owners_color() -> void:
 	assert_that(art.detail_tile(&"city", 0, 0)).is_equal(Vector2i(8, 3))  # red
 	assert_that(art.detail_tile(&"city", 1, 0)).is_equal(Vector2i(8, 2))  # blue
 	assert_that(art.detail_tile(&"factory", 0, 0)).is_equal(Vector2i(11, 3))
-	assert_that(art.detail_tile(&"hq", 1, 0)).is_equal(Vector2i(13, 2))
-	assert_that(art.detail_tile(&"airport", 0, 0)).is_equal(Vector2i(14, 3))  # jet on its pad
+	# The HQ is the spired building (column 14); the airport is the control
+	# tower over a runway to its right (column 15).
+	assert_that(art.detail_tile(&"hq", 1, 0)).is_equal(Vector2i(14, 2))
+	assert_that(art.detail_tile(&"hq", 0, 0)).is_equal(Vector2i(14, 3))
+	assert_that(art.detail_tile(&"airport", 0, 0)).is_equal(Vector2i(15, 3))
+	assert_that(art.detail_tile(&"airport", MapState.NO_OWNER, 0)).is_equal(Vector2i(15, 0))
 	# A team without a color row shows the neutral building.
 	assert_that(art.detail_tile(&"city", 7, 0)).is_equal(Vector2i(8, 0))
 	# Terrain that stands on the ground, and bare ground.
