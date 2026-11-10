@@ -119,6 +119,8 @@ res://
 │   ├── camera_rig.gd
 │   ├── pointer_input.gd             # mouse/touch → cursor, confirm/cancel, camera pan, pinch
 │   ├── screen_fit.gd                # web/touch: logical canvas sized to the device
+│   ├── sfx.gd / sfx_synth.gd        # one-line sound calls; effects synthesized in code
+│   ├── main.gd                      # root: new-match screen <-> a fresh Battle per match
 │   └── battle_animation.tscn        # optional cut-in combat animation
 │
 ├── ui/
@@ -131,6 +133,7 @@ res://
 │   ├── menus/action_menu.tscn        # Wait / Attack / Capture / Load / Join / Supply
 │   ├── menus/build_menu.tscn
 │   ├── menus/pause_menu.tscn
+│   ├── screens/match_setup.gd       # new-match screen (code-built): map, fog, weather, sound, continue
 │   ├── screens/title.tscn
 │   ├── screens/map_select.tscn
 │   ├── screens/co_select.tscn
@@ -140,10 +143,12 @@ res://
 ├── persistence/
 │   ├── save_game.gd                 # initial state + action log
 │   ├── replay.gd
+│   ├── map_catalog.gd               # the shipped maps, by name and by key
 │   └── settings.gd
 │
 ├── tools/
 │   ├── map_editor/map_editor.tscn   # @tool or standalone in-game editor
+│   ├── art/extend_tiny_battle.gd    # regenerates the extended sprite sheet
 │   └── ci/check_core_purity.gd      # lint: fails build if core/ touches Node
 │
 ├── autoload/
@@ -635,6 +640,8 @@ Build it in three stages, and don't skip to stage three:
 
 **Stage 2 — add maps.** A `ThreatMap` (damage each tile would take if occupied) and an `InfluenceMap` (territory control) turn the scoring from "attack whatever's adjacent" into something that positions sensibly and retreats damaged units.
 
+**As built, on top of stage 2.** `SimpleAI` also: pulls capturers toward the enemy HQ and scores finishing its capture above everything; treats enemy capturers near its own HQ as raiders (hit them, or park a unit on the HQ); keeps a quota of capturers and builds an answer to enemy types nothing it owns can hurt; never buys what can neither fight nor capture; flies fuel-burning units home before they run dry; presses when its army is worth at least 80% of the visible enemy's (without this, evenly matched copies stare at each other forever); and keeps units off tiles they would block — its own factories, and for non-capturers, properties still to be taken. `tests/golden/simple_ai_tempo_test.gd` plays AI vs AI on every shipped map and fails if a match doesn't finish.
+
 **Stage 3 — search, if needed.** Full-turn lookahead has a brutal branching factor: 15 units × ~200 reachable tiles × ~4 verbs is ~10⁴ per unit and the turn is a permutation of all of them. Realistic approaches are unit-ordered greedy with limited rollout, or Monte Carlo over the top-k candidate action sequences. Time-slice with a coroutine so the main thread stays responsive; only reach for `WorkerThreadPool` if profiling demands it, and remember the web-export threading caveat.
 
 `AIProfile` as a Resource gives you difficulty levels as data — aggression, risk tolerance, build preferences, whether it uses CO powers optimally — without branching code.
@@ -665,6 +672,8 @@ Save files are tiny and human-readable, replays are free, and desyncs become det
 **Undo:** snapshot `GameState.clone()` at turn start, pop the last action, replay the rest. ⚠️ With fog of war this leaks information — undoing a move that revealed an enemy lets you keep the knowledge. Either disable undo in fog matches or restrict it to actions that revealed nothing. Decide this early; it affects the UI.
 
 Guard `version` and reject mismatches loudly. A save format that silently half-loads is worse than one that refuses.
+
+**As built (format version 2).** The save also carries the fog and weather options and a `digest`: a checksum of the state its log should replay to (`Replay.digest`). `Replay.run` refuses a log that is illegal *or* lands on a different state — the case where rules or data changed since it was written and every action still happens to be legal. `Battle` records each applied action and autosaves to `user://autosave.json`; the new-match screen offers Continue only while that save still replays, and deletes it otherwise. A decided match removes its save.
 
 ---
 
@@ -732,5 +741,5 @@ These are cheap to decide now and expensive to change later:
 4. **Map size ceiling.** Affects whether naive algorithms are fine. Under 40×40, they are.
 5. **Multiplayer ambitions.** The action-log design makes hotseat trivial and networked play tractable, but only if you never let presentation mutate state. Decide now whether you're holding that line.
 6. **Art pipeline.** 16×16 or 32×32 tiles, team recoloring via palette swap shader or per-team sprite sheets. Palette swapping is far less asset work and worth setting up early.
-   **Decided:** 16×16 sheet art, drawn at 2× into the 32px world tiles so no world math changes. An `ArtSet` resource maps terrain/unit keys to sheet tiles, with per-team rows from the sheet itself (Tiny Battle ships each army in five colors), so no recolor shader. Without an ArtSet, or for any key it doesn't map, the flat-color placeholders draw — the tests run that way.
+   **Decided:** 16×16 sheet art, drawn at 2× into the 32px world tiles so no world math changes. Units the pack lacks (Medium Tank, Rockets) are drawn from its own pixels into two extra sheet columns by `tools/art/extend_tiny_battle.gd`. An `ArtSet` resource maps terrain/unit keys to sheet tiles, with per-team rows from the sheet itself (Tiny Battle ships each army in five colors), so no recolor shader. Without an ArtSet, or for any key it doesn't map, the flat-color placeholders draw — the tests run that way.
 ```
