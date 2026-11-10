@@ -154,6 +154,15 @@ func is_target(tile: Vector2i) -> bool:
 func confirm() -> void:
 	if _state == null:
 		return
+	var before := _phase
+	_confirm_in_phase()
+	# A confirm that got somewhere (a unit picked up, a menu opened) clicks;
+	# committing an action leaves the talking to the action's own sounds.
+	if _phase != before and _phase != State.EXECUTING and _phase != State.GAME_OVER:
+		Sfx.play(self, &"select")
+
+
+func _confirm_in_phase() -> void:
 	match _phase:
 		State.IDLE:
 			_confirm_idle()
@@ -169,6 +178,14 @@ func confirm() -> void:
 
 ## Cancel (ui_cancel): steps one phase back, touching nothing in core.
 func cancel() -> void:
+	var before := _phase
+	var was_inspecting := _inspecting
+	_cancel_in_phase()
+	if _phase != before or (was_inspecting and not _inspecting):
+		Sfx.play(self, &"cancel")
+
+
+func _cancel_in_phase() -> void:
 	match _phase:
 		State.IDLE:
 			_clear_inspection()
@@ -316,6 +333,7 @@ func _confirm_target() -> void:
 func _on_menu_chosen(index: int) -> void:
 	if _phase != State.ACTION_MENU:
 		return
+	Sfx.play(self, &"select")
 	if _menu_system:
 		_menu_system = false
 		var entry: Action = _system_entries[index]
@@ -380,6 +398,7 @@ func _on_menu_cancelled() -> void:
 func _on_build_chosen(type_id: int) -> void:
 	if _phase != State.BUILD_MENU:
 		return
+	Sfx.play(self, &"select")
 	var build := BuildAction.new()
 	build.unit_type_id = type_id
 	build.coord = _build_coord
@@ -505,8 +524,10 @@ func _settle(events: Array[GameEvent]) -> void:
 		_phase = State.IDLE
 		return
 	_phase = State.GAME_OVER
+	var won: bool = ended.winning_team == _view_team
+	Sfx.play(self, &"victory" if won else &"defeat")
 	if hud != null:
-		hud.show_result(result_text(ended.winning_team == _view_team, reason))
+		hud.show_result(result_text(won, reason))
 
 
 ## The game-over message from the viewing player's side. `reason` is the

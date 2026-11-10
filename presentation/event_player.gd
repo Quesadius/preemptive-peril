@@ -30,6 +30,9 @@ func setup(state: GameState) -> void:
 ## post-action state (the safety net that keeps display == state).
 func play(events: Array[GameEvent]) -> void:
 	for e: GameEvent in events:
+		var sound := sound_for(e)
+		if sound != &"":
+			Sfx.play(self, sound)
 		if e is Events.UnitMoved:
 			await _animate_move(e as Events.UnitMoved)
 		elif e is Events.UnitAmbushed:
@@ -43,6 +46,54 @@ func play(events: Array[GameEvent]) -> void:
 		# Remaining events (exhaustion, turn markers) apply in the sync.
 	if _state != null and unit_layer != null:
 		unit_layer.sync(_state, perspective_team)
+
+
+## The sound effect for `e`, or &"" for none: silent events, and anything
+## the viewing team couldn't see under fog — a hidden enemy moving,
+## shooting, building or capturing must not be heard either. Ownership
+## changes and turn starts are public knowledge and always sound.
+func sound_for(e: GameEvent) -> StringName:
+	var key: StringName = &""
+	var heard: bool = true
+	if e is Events.UnitMoved:
+		key = &"move"
+		heard = _shown((e as Events.UnitMoved).unit_id)
+	elif e is Events.UnitAttacked:
+		var hit := e as Events.UnitAttacked
+		key = &"attack"
+		heard = _shown(hit.attacker_id) or _shown(hit.defender_id)
+	elif e is Events.UnitCounterattacked:
+		var back := e as Events.UnitCounterattacked
+		key = &"attack"
+		heard = _shown(back.attacker_id) or _shown(back.defender_id)
+	elif e is Events.UnitDestroyed:
+		key = &"destroy"
+		heard = _shown((e as Events.UnitDestroyed).unit_id)
+	elif e is Events.CaptureProgressed:
+		key = &"capture"
+		heard = _shown((e as Events.CaptureProgressed).unit_id)
+	elif e is Events.UnitCreated:
+		key = &"build"
+		heard = _in_sight((e as Events.UnitCreated).coord)
+	elif e is Events.PropertyCaptured:
+		key = &"captured"
+	elif e is Events.PowerActivated:
+		key = &"power"
+	elif e is Events.TurnStarted:
+		key = &"turn"
+	return key if heard else &""
+
+
+## True when the unit is on screen — it has a view, which under fog only
+## units the viewing team can see do.
+func _shown(unit_id: int) -> bool:
+	return unit_layer != null and unit_layer.view_for(unit_id) != null
+
+
+func _in_sight(coord: Vector2i) -> bool:
+	if _state == null or perspective_team < 0:
+		return true
+	return Fog.sees_at(_state, perspective_team, coord)
 
 
 func _animate_move(e: Events.UnitMoved) -> void:

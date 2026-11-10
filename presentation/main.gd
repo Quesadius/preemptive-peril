@@ -55,6 +55,7 @@ func _start_match(map: MapDefinition, fog: bool, weather: bool) -> void:
 	settings.set_setting("last_map", String(map.key))
 	settings.set_setting("fog_default", fog)
 	settings.set_setting("weather_default", weather)
+	Sfx.play(self, &"select")
 	_new_battle()
 	_battle.load_map(map, fog, weather)
 	_enter_battle()
@@ -67,6 +68,7 @@ func _continue_match() -> void:
 	if not _battle.resume(_resumable):
 		_show_setup()  # no longer replayable: back to the menu, offer withdrawn
 		return
+	Sfx.play(self, &"select")
 	_enter_battle()
 
 
@@ -108,6 +110,7 @@ func _find_resumable() -> String:
 
 func _on_sound_toggled(on: bool) -> void:
 	_settings().set_setting("sound_on", on)
+	Sfx.play(self, &"select")  # heard only when it was just switched on
 
 
 ## The SettingsStore autoload, reached by path: autoload names aren't
