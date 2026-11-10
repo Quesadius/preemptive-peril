@@ -109,3 +109,24 @@ func test_resume_refuses_what_it_cannot_replay() -> void:
 	bad_log.action_log.append({"kind": "unit", "unit": 99, "verb": 0, "path": [[0, 0]]})
 	assert_bool(b.resume(bad_log)).is_false()
 	assert_object(b.state).is_same(state)  # the running match is untouched
+
+
+func test_resume_brings_back_the_difficulty_and_funds() -> void:
+	var b := _rig()
+	var options := MatchOptions.new()
+	options.map = MapCatalog.find(&"gauntlet")
+	options.difficulty = &"hard"
+	options.player_funds = 10000
+	b.start_match(options)
+	_end_turn(b)
+	var saved := SaveGame.read_file(SCRATCH)
+	assert_that(saved.player_setup[1]["ai"]).is_equal(&"hard")
+	assert_int(saved.player_setup[0]["funds"]).is_equal(10000)
+	var again: Battle = auto_free(Battle.assemble())
+	add_child(again)
+	again.event_player.skip_animations = true
+	assert_that(again.controller.ai_profile().key).is_equal(&"normal")
+	assert_bool(again.resume(saved)).is_true()
+	assert_that(again.controller.ai_profile().key).is_equal(&"hard")
+	assert_int(again.state.players[1].income_percent).is_equal(150)
+	assert_that(Replay.digest(again.state)).is_equal(Replay.digest(b.state))

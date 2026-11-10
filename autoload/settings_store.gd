@@ -14,6 +14,9 @@ const DEFAULTS: Dictionary[String, Variant] = {
 	"weather_default": false,
 	"sound_on": true,
 	"last_map": "crossroads",
+	"difficulty": "normal",
+	"player_funds": 0,
+	"enemy_funds": 0,
 }
 
 var _values: Dictionary[String, Variant] = {}
@@ -60,6 +63,10 @@ func apply_loaded(loaded: Dictionary) -> void:
 		if not key is String or not DEFAULTS.has(key):
 			continue
 		var value: Variant = loaded[key]
+		# JSON has one number type: a whole float is how an int setting
+		# comes back from disk.
+		if DEFAULTS[key] is int and value is float and value == floorf(value):
+			value = int(value)
 		if typeof(value) != typeof(DEFAULTS[key]):
 			continue
 		if (key as String).ends_with("_volume"):

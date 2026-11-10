@@ -84,3 +84,51 @@ func test_weather_shows_in_the_status_line_and_banner() -> void:
 	b.hud.on_events(cleared)
 	assert_that(b.hud.banner.text).is_equal("The skies clear")
 	assert_that(Hud.weather_name(GameState.Weather.CLEAR)).is_equal("Clear")
+
+
+func _options(map_key: StringName) -> MatchOptions:
+	var options := MatchOptions.new()
+	options.map = MapCatalog.find(map_key)
+	return options
+
+
+func test_start_match_applies_funds_income_and_level() -> void:
+	# Gauntlet gives each side an HQ and a factory: 2000 a turn, or 3000
+	# for the Hard computer's 150%.
+	var b := _rig()
+	var options := _options(&"gauntlet")
+	options.difficulty = &"hard"
+	options.player_funds = 5000
+	options.enemy_funds = 10000
+	b.start_match(options)
+	assert_int(b.state.players[0].funds).is_equal(5000)
+	assert_int(b.state.players[1].funds).is_equal(10000)
+	assert_int(Economy.income_for(b.state, 0)).is_equal(2000)
+	assert_int(Economy.income_for(b.state, 1)).is_equal(3000)
+	assert_that(b.controller.ai_profile().key).is_equal(&"hard")
+	# "Play again" in place keeps every choice, on a fresh state.
+	var first := b.state
+	b.play_again()
+	assert_object(b.state).is_not_same(first)
+	assert_int(b.state.players[0].funds).is_equal(5000)
+	assert_int(b.state.players[1].funds).is_equal(10000)
+	assert_int(b.state.players[1].income_percent).is_equal(150)
+	assert_that(b.controller.ai_profile().key).is_equal(&"hard")
+	# A plain load_map is a Normal match with nobody given a head start.
+	b.load_map(MapCatalog.find(&"gauntlet"))
+	assert_int(b.state.players[0].funds).is_equal(0)
+	assert_int(b.state.players[1].income_percent).is_equal(100)
+	assert_that(b.controller.ai_profile().key).is_equal(&"normal")
+
+
+func test_easy_computer_earns_two_thirds() -> void:
+	var b := _rig()
+	var options := _options(&"gauntlet")
+	options.difficulty = &"easy"
+	b.start_match(options)
+	assert_int(Economy.income_for(b.state, 1)).is_equal(1340)  # 2000 x 67%
+	assert_int(Economy.income_for(b.state, 0)).is_equal(2000)
+	assert_bool(b.controller.ai_profile().defends_hq).is_false()
+	# A state loaded directly plays against the Normal AI again.
+	b.load_state(BattleFixture.make_state())
+	assert_that(b.controller.ai_profile().key).is_equal(&"normal")

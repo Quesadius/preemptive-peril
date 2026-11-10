@@ -360,4 +360,11 @@ func test_settings_store_filters_types_and_clamps() -> void:
 	assert_bool(store.get_setting("skip_animations")).is_equal(skip_before)
 	assert_object(store.get_setting("bogus")).is_null()
 	assert_bool(store.get_setting("fog_default")).is_true()
+	# Whole numbers come back from JSON as floats; an int setting takes
+	# them as ints and ignores anything fractional.
+	store.apply_loaded({"player_funds": 5000.0, "enemy_funds": 2500.5, "difficulty": "hard"})
+	assert_that(store.get_setting("player_funds")).is_equal(5000)
+	assert_int(typeof(store.get_setting("player_funds"))).is_equal(TYPE_INT)
+	assert_that(store.get_setting("enemy_funds")).is_equal(0)
+	assert_that(store.get_setting("difficulty")).is_equal("hard")
 	store.reload()  # back to what's on disk

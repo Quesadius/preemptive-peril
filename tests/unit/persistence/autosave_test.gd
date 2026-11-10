@@ -1,5 +1,5 @@
 extends GdUnitTestSuite
-## Save format version 2 and the files behind autosave: the weather flag
+## The save format's later versions and the files behind autosave: the weather flag
 ## and state digest round-trip, a log that replays to a different state
 ## is refused, version 1 files still load, and saves read, write and
 ## delete on disk.
@@ -49,7 +49,7 @@ func test_weather_and_digest_round_trip() -> void:
 	_play(save, live, EndTurnAction.new())
 	_play(save, live, EndTurnAction.new())
 	var loaded := SaveGame.from_json(save.to_json())
-	assert_int(loaded.version).is_equal(2)
+	assert_int(loaded.version).is_equal(SaveGame.SAVE_VERSION)
 	assert_bool(loaded.weather_enabled).is_true()
 	assert_that(loaded.digest).is_equal(save.digest)
 	assert_int(loaded.action_log.size()).is_equal(3)
@@ -115,7 +115,7 @@ func test_version_1_saves_still_load() -> void:
 	# With no digest to hold it to, the log is only checked for legality.
 	var gs := Replay.run(old, load(RULESET) as Ruleset, MapCatalog.find(&"gauntlet"))
 	assert_object(gs).is_not_null()
-	assert_object(SaveGame.from_json('{"version": 3}')).is_null()
+	assert_object(SaveGame.from_json('{"version": 4}')).is_null()  # from the future
 	assert_object(SaveGame.from_json('{"version": 2, "weather": "sometimes"}')).is_null()
 	assert_object(SaveGame.from_json('{"version": 2, "digest": 12}')).is_null()
 
@@ -138,3 +138,42 @@ func test_saves_read_write_and_delete_on_disk() -> void:
 	bloat.store_buffer(filler)
 	bloat.close()
 	assert_object(SaveGame.read_file(SCRATCH)).is_null()
+
+
+func test_version_3_carries_funds_income_and_ai_level() -> void:
+	var save := _new_save(false)
+	save.player_setup = [
+		{"team": 0, "co": &"vale", "funds": 5000},
+		{"team": 1, "co": &"rook", "is_ai": true, "funds": 10000, "income": 150, "ai": &"hard"},
+	]
+	var loaded := SaveGame.from_json(save.to_json())
+	assert_int(loaded.version).is_equal(3)
+	assert_that(loaded.player_setup[0]).is_equal(
+		{"team": 0, "co": &"vale", "is_ai": false, "funds": 5000}
+	)
+	assert_int(loaded.player_setup[1]["funds"]).is_equal(10000)
+	assert_int(loaded.player_setup[1]["income"]).is_equal(150)
+	assert_that(loaded.player_setup[1]["ai"]).is_equal(&"hard")
+	var gs := Replay.run(loaded, load(RULESET) as Ruleset, MapCatalog.find(&"gauntlet"))
+	assert_int(gs.players[0].funds).is_equal(5000)
+	assert_int(gs.players[1].funds).is_equal(10000)
+	assert_int(gs.players[0].income_percent).is_equal(100)
+	assert_int(gs.players[1].income_percent).is_equal(150)
+	# Mistyped or impossible values are refused, not coerced.
+	var head := '{"version": 3, "map": "gauntlet", "players": [{"team": 0, '
+	assert_object(SaveGame.from_json(head + '"funds": "lots"}]}')).is_null()
+	assert_object(SaveGame.from_json(head + '"income": 1.5}]}')).is_null()
+	assert_object(SaveGame.from_json(head + '"ai": 3}]}')).is_null()
+	var broke := SaveGame.from_json(head + '"funds": -5}, {"team": 1}]}')
+	assert_object(broke).is_not_null()  # well-typed...
+	(
+		assert_object(Replay.run(broke, load(RULESET) as Ruleset, MapCatalog.find(&"gauntlet")))
+		. is_null()
+	)
+	var free_lunch := SaveGame.from_json(head + '"income": 0}, {"team": 1}]}')
+	(
+		assert_object(
+			Replay.run(free_lunch, load(RULESET) as Ruleset, MapCatalog.find(&"gauntlet"))
+		)
+		. is_null()
+	)

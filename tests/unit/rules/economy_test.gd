@@ -105,3 +105,29 @@ func test_generator_emits_builds_and_they_validate() -> void:
 	var all := ActionGenerator.generate(gs)
 	assert_object(all[all.size() - 1] as EndTurnAction).is_not_null()
 	assert_int(all.size()).is_equal(3)  # two builds + end turn, no units
+
+
+func test_income_percent_scales_what_properties_pay() -> void:
+	# Blue owns the city and a factory: 2000 a turn at the plain 100%.
+	#   150% (the Hard handicap): 3000.
+	#   67% (Easy): 2000 x 67 / 100 = 1340.
+	# A lone 1000 property at 67% pays 670; red, at 100%, is untouched.
+	var gs := BattleFixture.make_econ_state()
+	BattleFixture.claim(gs, Vector2i(2, 0), 1)
+	BattleFixture.claim(gs, Vector2i(1, 1), 1)
+	BattleFixture.claim(gs, Vector2i(3, 1), 0)
+	assert_int(gs.players[1].income_percent).is_equal(100)
+	gs.players[1].income_percent = 150
+	assert_int(Economy.income_for(gs, 1)).is_equal(3000)
+	assert_int(Economy.income_for(gs, 0)).is_equal(1000)
+	gs.players[1].income_percent = 67
+	assert_int(Economy.income_for(gs, 1)).is_equal(1340)
+	BattleFixture.claim(gs, Vector2i(1, 1), MapState.NO_OWNER)
+	assert_int(Economy.income_for(gs, 1)).is_equal(670)
+	# The scaled amount is what lands at turn start, and a clone keeps
+	# the handicap.
+	var events := Rules.apply(gs, EndTurnAction.new())
+	var paid := events[2] as Events.FundsChanged
+	assert_int(paid.delta).is_equal(670)
+	assert_int(gs.players[1].funds).is_equal(670)
+	assert_int(gs.clone().players[1].income_percent).is_equal(67)

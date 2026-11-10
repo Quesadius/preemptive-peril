@@ -66,11 +66,8 @@ const PRESS_THREAT_FACTOR := 0.1
 ## same again as a penalty for ending a move on one.
 const KEEP_CLEAR_SCORE := 200.0
 const BUILD_BASE_SCORE := 120.0
-## Building a capturer while the army is under its quota: at least
-## MIN_CAPTURERS, and one per CAPTURER_SHARE units as it grows.
+## Building a capturer while the army is under the profile's quota.
 const BUILD_CAPTURER_SCORE := 1000.0
-const MIN_CAPTURERS := 2
-const CAPTURER_SHARE := 8
 ## Building a unit that can hurt an enemy type nothing we own can.
 const BUILD_COUNTER_SCORE := 800.0
 ## Base damage from which a unit counts as an answer to an enemy type.
@@ -223,6 +220,8 @@ func _in_the_way(view: StateView, unit: UnitState, coord: Vector2i) -> bool:
 ## True while our army is worth at least PRESS_RATIO of the enemy's we
 ## can see (cost x HP share, cargo included). Read once per decision.
 func _is_pressing(view: StateView) -> bool:
+	if not profile.presses:
+		return false
 	if _pressing < 0:
 		var ours: float = 0.0
 		var theirs: float = 0.0
@@ -267,13 +266,18 @@ func _short_of_capturers(view: StateView) -> bool:
 	for mine: UnitState in army:
 		if view.ruleset().unit_types[mine.type_id].capture_capable:
 			capturers += 1
-	@warning_ignore("integer_division")
-	return capturers < maxi(MIN_CAPTURERS, army.size() / CAPTURER_SHARE)
+	var quota: int = profile.min_capturers
+	if profile.capturer_share > 0:
+		@warning_ignore("integer_division")
+		quota = maxi(quota, army.size() / profile.capturer_share)
+	return capturers < quota
 
 
 ## True when some visible enemy type is hurt by `candidate` and by
 ## nothing the army already fields.
 func _answers_an_open_threat(view: StateView, candidate: UnitType) -> bool:
+	if not profile.counter_builds:
+		return false
 	var ruleset := view.ruleset()
 	var checked: Dictionary[int, bool] = {}
 	for enemy: UnitState in view.visible_units():
@@ -311,6 +315,8 @@ func _watch_hqs(view: StateView) -> void:
 	_hq_watch_ready = true
 	_my_hqs = []
 	_raiders = []
+	if not profile.defends_hq:
+		return  # no HQs watched, so no raiders: every HQ habit stays off
 	var map := view.map()
 	var ruleset := view.ruleset()
 	for i: int in range(map.property_owner.size()):

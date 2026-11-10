@@ -10,6 +10,9 @@ extends Resource
 @export var movement_classes: Array[MovementClass] = []
 @export var cos: Array[COProfile] = []
 @export var starting_funds: int = 0
+## Head starts a new match may hand a player in place of starting_funds
+## (the new-match screen's per-side choice).
+@export var starting_funds_options: PackedInt32Array = PackedInt32Array()
 @export var funds_per_property: int = 1000
 @export var luck_max: int = 9
 ## Percent chance of weather rolling in at each clear day start (only

@@ -7,7 +7,9 @@ extends RefCounted
 
 
 ## Builds a fresh match state. `player_setup` entries:
-## {"team": int, "co": StringName (optional), "is_ai": bool (optional)}.
+## {"team": int, "co": StringName (optional), "is_ai": bool (optional),
+## "funds": int (optional starting funds; the ruleset's otherwise),
+## "income": int (optional income percent, default 100)}.
 ## Terrain, unit, and CO identity resolve by key; unknown keys, a
 ## malformed grid or spawn list, and an empty or duplicate-team player
 ## list are a loud error returning null — the state must be safe to
@@ -52,6 +54,11 @@ static func state_from_map(
 		var team: Variant = setup.get("team")
 		var is_ai: Variant = setup.get("is_ai", false)
 		var co: Variant = setup.get("co", &"")
+		var funds: Variant = setup.get("funds", ruleset.starting_funds)
+		var income: Variant = setup.get("income", 100)
+		if not (funds is int and income is int and int(funds) >= 0 and int(income) >= 1):
+			push_error("match setup entry %s has bad funds or income" % str(setup))
+			return null
 		if not (team is int and is_ai is bool and (co is StringName or co is String)):
 			push_error("match setup entry %s has a field of the wrong type" % str(setup))
 			return null
@@ -61,7 +68,8 @@ static func state_from_map(
 		var p := PlayerState.new()
 		p.team = team
 		p.is_ai = is_ai
-		p.funds = ruleset.starting_funds
+		p.funds = funds
+		p.income_percent = income
 		var co_key := StringName(co)
 		if co_key != &"":
 			for ci: int in range(ruleset.cos.size()):

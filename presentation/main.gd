@@ -43,21 +43,31 @@ func _show_setup() -> void:
 		_battle = null
 	var settings := _settings()
 	var last_map: String = settings.get_setting("last_map")
-	var fog: bool = settings.get_setting("fog_default")
-	var weather: bool = settings.get_setting("weather_default")
+	var difficulty: String = settings.get_setting("difficulty")
+	var remembered := MatchOptions.new()
+	remembered.map = MapCatalog.find(StringName(last_map))
+	remembered.fog = settings.get_setting("fog_default")
+	remembered.weather = settings.get_setting("weather_default")
+	remembered.difficulty = StringName(difficulty)
+	remembered.player_funds = settings.get_setting("player_funds")
+	remembered.enemy_funds = settings.get_setting("enemy_funds")
 	var sound: bool = settings.get_setting("sound_on")
-	_setup.open(MapCatalog.all(), StringName(last_map), fog, weather, sound)
+	var funds_choices := (load(RULESET_PATH) as Ruleset).starting_funds_options
+	_setup.open(MapCatalog.all(), AIProfileCatalog.all(), funds_choices, remembered, sound)
 	_setup.set_continue(_find_resumable())
 
 
-func _start_match(map: MapDefinition, fog: bool, weather: bool) -> void:
+func _start_match(options: MatchOptions) -> void:
 	var settings := _settings()
-	settings.set_setting("last_map", String(map.key))
-	settings.set_setting("fog_default", fog)
-	settings.set_setting("weather_default", weather)
+	settings.set_setting("last_map", String(options.map.key))
+	settings.set_setting("fog_default", options.fog)
+	settings.set_setting("weather_default", options.weather)
+	settings.set_setting("difficulty", String(options.difficulty))
+	settings.set_setting("player_funds", options.player_funds)
+	settings.set_setting("enemy_funds", options.enemy_funds)
 	Sfx.play(self, &"select")
 	_new_battle()
-	_battle.load_map(map, fog, weather)
+	_battle.start_match(options)
 	_enter_battle()
 
 

@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="AIProfile" format=3]
+
+[ext_resource type="Script" path="res://ai/profiles/ai_profile.gd" id="1_bgw5v"]
+
+[resource]
+script = ExtResource("1_bgw5v")
+description = "An even fight."

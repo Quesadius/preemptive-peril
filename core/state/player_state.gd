@@ -8,6 +8,9 @@ enum PowerState { NONE, CO_POWER, SUPER }
 
 var team: int
 var funds: int = 0
+## Income collected each turn, as a percent of what the properties pay:
+## 100 is the plain amount, 150 a half-again handicap bonus.
+var income_percent: int = 100
 var co_id: int = -1
 var power_meter: int = 0
 var power_state: int = PowerState.NONE
@@ -21,6 +24,7 @@ func clone() -> PlayerState:
 	var copy := PlayerState.new()
 	copy.team = team
 	copy.funds = funds
+	copy.income_percent = income_percent
 	copy.co_id = co_id
 	copy.power_meter = power_meter
 	copy.power_state = power_state

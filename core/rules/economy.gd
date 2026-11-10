@@ -5,7 +5,8 @@ extends RefCounted
 ## Ruleset.funds_per_property for property terrains without a figure.
 
 
-## Total start-of-turn income for `team` across its owned properties.
+## Total start-of-turn income for `team`: what its owned properties pay,
+## scaled by the player's income_percent (rounded down).
 static func income_for(state: GameState, team: int) -> int:
 	var total: int = 0
 	for i: int in range(state.map.property_owner.size()):
@@ -13,6 +14,10 @@ static func income_for(state: GameState, team: int) -> int:
 			continue
 		var terrain: TerrainType = state.ruleset.terrain_types[state.map.terrain[i]]
 		total += terrain.income if terrain.income > 0 else state.ruleset.funds_per_property
+	var player := player_of(state, team)
+	if player != null and player.income_percent != 100:
+		@warning_ignore("integer_division")
+		total = total * player.income_percent / 100
 	return total
 
 

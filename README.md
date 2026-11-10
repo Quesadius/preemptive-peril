@@ -4,7 +4,7 @@
 
 A turn-based grid tactics game built in Godot 4 with GDScript. Command an army of infantry, tanks, artillery, transports and aircraft, capture cities for income, build reinforcements at factories and airports, and take the enemy's headquarters before they take yours.
 
-**Status:** playable against the computer on three maps, with optional fog of war and weather, autosave, pixel art from Kenney's Tiny Battle pack, and synthesized sound effects. There is no music yet.
+**Status:** playable against the computer on three maps and three difficulty levels, with optional fog of war and weather, autosave, pixel art from Kenney's Tiny Battle pack, and synthesized sound effects. There is no music yet.
 
 ![The Crossroads map at the start of a match: red's army and base on the left, blue's on the right, neutral cities in between](docs/screenshots/crossroads.png)
 
@@ -29,9 +29,9 @@ To run it locally you need [Godot](https://godotengine.org/) 4.6 or newer (CI us
 
 ## Starting a match
 
-![The new-match screen: three maps to choose from, toggles for fog of war, random weather and sound, and a Start button](docs/screenshots/setup.png)
+![The new-match screen: three maps to choose from, toggles for fog of war, random weather and sound, a difficulty button with each side's starting funds, and a Start button](docs/screenshots/setup.png)
 
-The game opens on the new-match screen. Pick a map, switch **fog of war**, **random weather** and **sound** on or off, and start; your choices are remembered. Arrow keys and Enter, the mouse, and touch all work here.
+The game opens on the new-match screen. Pick a map, switch **fog of war**, **random weather** and **sound** on or off, set the balance, and start; your choices are remembered. Arrow keys and Enter, the mouse, and touch all work here.
 
 | Map | Size | Notes |
 |---|---|---|
@@ -40,6 +40,18 @@ The game opens on the new-match screen. Pick a map, switch **fog of war**, **ran
 | Highlands | 18×12 | The big one, with an airport in each base and two more to fight over |
 
 ![Highlands: red's base top-left, blue's bottom-right, a winding road, and two unclaimed airports in the middle](docs/screenshots/highlands.png)
+
+### Difficulty and starting funds
+
+The three buttons under **Balance** each step to their next choice when pressed.
+
+| Difficulty | What changes |
+|---|---|
+| Easy | The computer earns a third less from its properties, doesn't guard its HQ, doesn't build counters to your units, and waits for you to come to it |
+| Normal | An even fight: same income as you, and everything the computer knows how to do |
+| Hard | The computer plays as on Normal and earns 50% more from its properties |
+
+**Your funds** and **Enemy funds** set what each side starts with — 0, 5,000 or 10,000 — separately, so you can give yourself a head start, give the computer one, or both. Head starts stack with the difficulty: Easy with 10,000 for you is the gentlest match, Hard with 10,000 for the enemy the roughest.
 
 The match is **saved after every action**. Close the game — or the browser tab — and the new-match screen offers **Continue** next time. To leave a match yourself, confirm on any empty tile and choose **Quit to menu**.
 

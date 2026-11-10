@@ -152,14 +152,12 @@ var hand_off_new_match: bool = false:
 		if controller != null:
 			controller.offer_quit = value
 
-## The authored map and options the current match was started with, so
-## "play again" can start a fresh match the same way. The map is null
-## for states loaded directly.
+## The authored map the current match was started on; null for states
+## loaded directly.
 var _map_def: MapDefinition
-var _fog: bool = false
-var _weather: bool = false
-## The match in progress as a save: its setup plus every action so far.
-## Null for states loaded directly, which aren't recorded.
+## The match in progress as a save: its setup plus every action so far —
+## which is also everything "play again" needs to start the same match
+## afresh. Null for states loaded directly, which aren't recorded.
 var _save: SaveGame
 
 
@@ -172,26 +170,45 @@ func _ready() -> void:
 		load_state(build_demo_state(ruleset))
 
 
-## Starts a match on an authored map: Vale (human) vs Rook (AI), with
-## fog of war and random weather as asked. Used by main.gd for the
-## shipped boot; _ready keeps the code-built demo so tests stay
+## Starts a plain match on an authored map — Normal difficulty, no head
+## starts — with fog of war and random weather as asked. The short form
+## of start_match(); _ready keeps the code-built demo so tests stay
 ## self-contained.
 func load_map(def: MapDefinition, fog: bool = false, weather: bool = false) -> void:
+	var options := MatchOptions.new()
+	options.map = def
+	options.fog = fog
+	options.weather = weather
+	start_match(options)
+
+
+## Starts a match as `options` describe: Vale (human) vs Rook (AI) on the
+## chosen map, each side with its starting funds, the AI at the chosen
+## difficulty and with that level's income handicap.
+func start_match(options: MatchOptions) -> void:
 	_ensure_ruleset()  # callable before _ready (script boots)
+	var level := AIProfileCatalog.find(options.difficulty)
 	var save := SaveGame.new()
-	save.map_key = def.key
+	save.map_key = options.map.key
 	save.rng_seed = randi_seed_for_match()
-	save.fog_enabled = fog
-	save.weather_enabled = weather
+	save.fog_enabled = options.fog
+	save.weather_enabled = options.weather
 	save.player_setup = [
-		{"team": 0, "co": &"vale"},
-		{"team": 1, "co": &"rook", "is_ai": true},
+		{"team": 0, "co": &"vale", "funds": options.player_funds},
+		{
+			"team": 1,
+			"co": &"rook",
+			"is_ai": true,
+			"funds": options.enemy_funds,
+			"income": level.income_percent,
+			"ai": level.key,
+		},
 	]
-	var gs := Replay.run(save, ruleset, def)
+	var gs := Replay.run(save, ruleset, options.map)
 	if gs == null:
-		push_warning("Battle: map %s failed to build; keeping current state" % def.key)
+		push_warning("Battle: map %s failed to build; keeping current state" % options.map.key)
 		return
-	_begin(def, save, gs)
+	_begin(options.map, save, gs)
 	_autosave()
 
 
@@ -215,10 +232,19 @@ func resume(save: SaveGame) -> bool:
 ## starts at once, and its actions must be recorded.
 func _begin(def: MapDefinition, save: SaveGame, gs: GameState) -> void:
 	_map_def = def
-	_fog = save.fog_enabled
-	_weather = save.weather_enabled
 	_save = save
+	if controller != null:
+		controller.use_ai_profile(AIProfileCatalog.find(_ai_level(save)))
 	_bind(gs)
+
+
+## The difficulty key a save's AI player carries (Normal when it has
+## none: saves from before difficulty levels).
+static func _ai_level(save: SaveGame) -> StringName:
+	for entry: Dictionary in save.player_setup:
+		if entry.get("is_ai", false) and entry.has("ai"):
+			return entry["ai"]
+	return &"normal"
 
 
 ## Falls back to the classic ruleset when none was wired in the editor.
@@ -239,6 +265,8 @@ func randi_seed_for_match() -> int:
 func load_state(gs: GameState) -> void:
 	_map_def = null
 	_save = null
+	if controller != null:
+		controller.use_ai_profile(AIProfile.new())
 	_bind(gs)
 
 
@@ -264,8 +292,17 @@ func play_again() -> void:
 	if hand_off_new_match:
 		new_match_requested.emit()
 		return
-	if _map_def != null:
-		load_map(_map_def, _fog, _weather)
+	if _map_def != null and _save != null:
+		var fresh := SaveGame.new()
+		fresh.map_key = _save.map_key
+		fresh.rng_seed = randi_seed_for_match()
+		fresh.fog_enabled = _save.fog_enabled
+		fresh.weather_enabled = _save.weather_enabled
+		fresh.player_setup = _save.player_setup.duplicate(true)
+		var gs := Replay.run(fresh, ruleset, _map_def)
+		if gs != null:
+			_begin(_map_def, fresh, gs)
+			_autosave()
 		return
 	_ensure_ruleset()
 	load_state(build_demo_state(ruleset))

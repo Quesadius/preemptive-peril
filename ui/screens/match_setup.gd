@@ -1,12 +1,13 @@
 class_name MatchSetup
 extends CanvasLayer
 ## The new-match screen: pick a map, switch fog of war, random weather
-## and sound on or off, and start — or continue a saved match when one
-## is offered. Built in code from stock Buttons, so arrow keys and Enter,
+## and sound on or off, choose the opponent's difficulty and each side's
+## starting funds, and start — or continue a saved match when one is
+## offered. Built in code from stock Buttons, so arrow keys and Enter,
 ## the mouse, and touch all drive it through Godot's own focus handling.
 ## It only reports choices; main.gd owns what they do.
 
-signal start_requested(map: MapDefinition, fog: bool, weather: bool)
+signal start_requested(options: MatchOptions)
 signal continue_requested
 signal sound_toggled(on: bool)
 
@@ -27,6 +28,19 @@ var _fog: Button
 var _weather: Button
 var _sound: Button
 var _start: Button
+## The difficulty levels on offer and the one chosen; pressing the
+## button steps to the next.
+var _levels: Array[AIProfile] = []
+var _level_index: int = 0
+var _difficulty: Button
+## What the chosen level means, in the level's own words.
+var _level_note: Label
+## Starting-funds choices and each side's pick, stepped the same way.
+var _funds_choices := PackedInt32Array()
+var _player_funds_index: int = 0
+var _enemy_funds_index: int = 0
+var _player_funds: Button
+var _enemy_funds: Button
 
 
 func _init() -> void:
@@ -58,21 +72,31 @@ func _init() -> void:
 	_continue.pressed.connect(func() -> void: continue_requested.emit())
 	_column.add_child(_continue)
 	_column.add_child(_heading("Map"))
-	_map_row = HFlowContainer.new()
-	_map_row.add_theme_constant_override("h_separation", 8)
-	_map_row.add_theme_constant_override("v_separation", 8)
-	_column.add_child(_map_row)
+	_map_row = _flow_row()
 	_column.add_child(_heading("Options"))
-	var options := HFlowContainer.new()
-	options.add_theme_constant_override("h_separation", 8)
-	options.add_theme_constant_override("v_separation", 8)
-	_column.add_child(options)
+	var options := _flow_row()
 	_fog = _toggle("Fog of war")
 	_weather = _toggle("Random weather")
 	_sound = _toggle("Sound")
 	_sound.toggled.connect(func(on: bool) -> void: sound_toggled.emit(on))
 	for toggle: Button in [_fog, _weather, _sound]:
 		options.add_child(toggle)
+	# The balance of the match gets a row of its own, with the chosen
+	# level's description right under it.
+	_column.add_child(_heading("Balance"))
+	var balance := _flow_row()
+	_difficulty = _button("")
+	_difficulty.pressed.connect(_step_difficulty)
+	_player_funds = _button("")
+	_player_funds.pressed.connect(_step_player_funds)
+	_enemy_funds = _button("")
+	_enemy_funds.pressed.connect(_step_enemy_funds)
+	for choice: Button in [_difficulty, _player_funds, _enemy_funds]:
+		balance.add_child(choice)
+	_level_note = Label.new()
+	_level_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_level_note.modulate = Color(1, 1, 1, 0.6)
+	_column.add_child(_level_note)
 	_start = _button("Start match")
 	_start.pressed.connect(_on_start_pressed)
 	_column.add_child(_start)
@@ -83,19 +107,21 @@ func _ready() -> void:
 	_fit()
 
 
-## Shows the screen with these maps and remembered choices. The map whose
-## key is `selected_key` starts chosen (the first map if none matches).
+## Shows the screen with these maps, difficulty levels and funds choices,
+## set to the `remembered` options (anything no longer on offer falls
+## back to the first choice — Normal, for the difficulty).
 func open(
-	maps: Array[MapDefinition], selected_key: StringName, fog: bool, weather: bool, sound: bool
+	maps: Array[MapDefinition],
+	levels: Array[AIProfile],
+	funds_choices: PackedInt32Array,
+	remembered: MatchOptions,
+	sound: bool
 ) -> void:
 	_maps = maps.duplicate()
 	for old: Node in _map_row.get_children():
 		_map_row.remove_child(old)
 		old.free()
-	var chosen: int = 0
-	for i: int in range(_maps.size()):
-		if _maps[i].key == selected_key:
-			chosen = i
+	var chosen: int = maxi(0, _maps.find(remembered.map))
 	for i: int in range(_maps.size()):
 		var def := _maps[i]
 		var button := _button("%s  %d×%d" % [def.display_name, def.width, def.height])
@@ -103,9 +129,23 @@ func open(
 		button.button_group = _map_group
 		button.button_pressed = i == chosen
 		_map_row.add_child(button)
-	_set_toggle(_fog, fog)
-	_set_toggle(_weather, weather)
+	_set_toggle(_fog, remembered.fog)
+	_set_toggle(_weather, remembered.weather)
 	_set_toggle(_sound, sound)
+	_levels = levels.duplicate()
+	_level_index = 0
+	for i: int in range(_levels.size()):
+		if _levels[i].key == &"normal":
+			_level_index = i
+	for i: int in range(_levels.size()):
+		if _levels[i].key == remembered.difficulty:
+			_level_index = i
+	_funds_choices = funds_choices.duplicate()
+	if _funds_choices.is_empty():
+		_funds_choices.append(0)
+	_player_funds_index = maxi(0, _funds_choices.find(remembered.player_funds))
+	_enemy_funds_index = maxi(0, _funds_choices.find(remembered.enemy_funds))
+	_refresh_choices()
 	visible = true
 	if is_inside_tree():
 		_start.grab_focus.call_deferred()  # Enter starts with the remembered choices
@@ -144,6 +184,31 @@ func option_buttons() -> Array[Button]:
 	return out
 
 
+## The difficulty, your-funds and enemy-funds buttons, in that order,
+## for tests.
+func choice_buttons() -> Array[Button]:
+	var out: Array[Button] = [_difficulty, _player_funds, _enemy_funds]
+	return out
+
+
+## The line describing the chosen difficulty, for tests.
+func level_note() -> String:
+	return _level_note.text
+
+
+## The options as currently chosen.
+func chosen_options() -> MatchOptions:
+	var options := MatchOptions.new()
+	options.map = selected_map()
+	options.fog = _fog.button_pressed
+	options.weather = _weather.button_pressed
+	if not _levels.is_empty():
+		options.difficulty = _levels[_level_index].key
+	options.player_funds = _funds_choices[_player_funds_index]
+	options.enemy_funds = _funds_choices[_enemy_funds_index]
+	return options
+
+
 ## The Start and Continue buttons, for tests.
 func start_button() -> Button:
 	return _start
@@ -159,9 +224,48 @@ func column_width() -> float:
 
 
 func _on_start_pressed() -> void:
-	var map := selected_map()
-	if map != null:
-		start_requested.emit(map, _fog.button_pressed, _weather.button_pressed)
+	if selected_map() != null:
+		start_requested.emit(chosen_options())
+
+
+func _step_difficulty() -> void:
+	if not _levels.is_empty():
+		_level_index = (_level_index + 1) % _levels.size()
+	_refresh_choices()
+
+
+func _step_player_funds() -> void:
+	_player_funds_index = (_player_funds_index + 1) % _funds_choices.size()
+	_refresh_choices()
+
+
+func _step_enemy_funds() -> void:
+	_enemy_funds_index = (_enemy_funds_index + 1) % _funds_choices.size()
+	_refresh_choices()
+
+
+## Rewrites the stepping buttons' captions and the difficulty note.
+func _refresh_choices() -> void:
+	var level_name := "Normal"
+	var note := ""
+	if not _levels.is_empty():
+		level_name = _levels[_level_index].display_name
+		note = _levels[_level_index].description
+	_difficulty.text = "Difficulty: %s" % level_name
+	_level_note.text = note
+	_player_funds.text = "Your funds: %s" % _thousands(_funds_choices[_player_funds_index])
+	_enemy_funds.text = "Enemy funds: %s" % _thousands(_funds_choices[_enemy_funds_index])
+
+
+## 5000 -> "5,000".
+static func _thousands(amount: int) -> String:
+	var digits := str(amount)
+	var out := ""
+	for i: int in range(digits.length()):
+		if i > 0 and (digits.length() - i) % 3 == 0:
+			out += ","
+		out += digits[i]
+	return out
 
 
 ## Sizes the column to the screen: phones in portrait get a narrow one
@@ -169,6 +273,16 @@ func _on_start_pressed() -> void:
 func _fit() -> void:
 	var available := get_viewport().get_visible_rect().size.x - 2.0 * SIDE_MARGIN
 	_column.custom_minimum_size.x = clampf(available, MIN_WIDTH, MAX_WIDTH)
+	_level_note.custom_minimum_size.x = _column.custom_minimum_size.x  # wraps to the column
+
+
+## Adds a row to the column whose buttons wrap when they run out of width.
+func _flow_row() -> HFlowContainer:
+	var row := HFlowContainer.new()
+	row.add_theme_constant_override("h_separation", 8)
+	row.add_theme_constant_override("v_separation", 8)
+	_column.add_child(row)
+	return row
 
 
 static func _button(text: String) -> Button:

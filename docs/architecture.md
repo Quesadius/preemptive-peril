@@ -89,11 +89,12 @@ res://
 │   ├── terrain/                     # plains.tres, forest.tres, city.tres, ...
 │   ├── movement_classes/            # foot.tres, boots.tres, treads.tres, ...
 │   ├── cos/
+│   ├── ai/                          # easy.tres, normal.tres, hard.tres (AIProfile)
 │   └── maps/                        # *.tres MapDefinition
 │
 ├── ai/
 │   ├── ai_player.gd                 # abstract: choose_action(view) -> Action
-│   ├── profiles/ai_profile.gd       # Resource: aggression, weights, difficulty
+│   ├── profiles/ai_profile.gd       # Resource: a difficulty level — weights, behaviour switches, income handicap
 │   ├── scoring/
 │   │   ├── evaluator.gd             # static position eval
 │   │   ├── threat_map.gd
@@ -121,6 +122,7 @@ res://
 │   ├── screen_fit.gd                # web/touch: logical canvas sized to the device
 │   ├── sfx.gd / sfx_synth.gd        # one-line sound calls; effects synthesized in code
 │   ├── main.gd                      # root: new-match screen <-> a fresh Battle per match
+│   ├── match_options.gd             # what the new-match screen chose: map, fog, weather, difficulty, each side's funds
 │   └── battle_animation.tscn        # optional cut-in combat animation
 │
 ├── ui/
@@ -133,7 +135,7 @@ res://
 │   ├── menus/action_menu.tscn        # Wait / Attack / Capture / Load / Join / Supply
 │   ├── menus/build_menu.tscn
 │   ├── menus/pause_menu.tscn
-│   ├── screens/match_setup.gd       # new-match screen (code-built): map, fog, weather, sound, continue
+│   ├── screens/match_setup.gd       # new-match screen (code-built): map, fog, weather, sound, difficulty, funds, continue
 │   ├── screens/title.tscn
 │   ├── screens/map_select.tscn
 │   ├── screens/co_select.tscn
@@ -144,6 +146,7 @@ res://
 │   ├── save_game.gd                 # initial state + action log
 │   ├── replay.gd
 │   ├── map_catalog.gd               # the shipped maps, by name and by key
+│   ├── ai_profile_catalog.gd        # the difficulty levels in data/ai, in menu order and by key
 │   └── settings.gd
 │
 ├── tools/
@@ -458,6 +461,7 @@ class_name Ruleset extends Resource
 @export var cos: Array[COProfile] = []
 @export var damage_tables: Array[DamageTable] = []
 @export var starting_funds: int = 0
+@export var starting_funds_options: PackedInt32Array   # head starts the new-match screen offers each side
 @export var funds_per_property: int = 1000
 @export var luck_max: int = 9
 @export var capture_threshold: int = 20
@@ -642,6 +646,8 @@ Build it in three stages, and don't skip to stage three:
 
 **As built, on top of stage 2.** `SimpleAI` also: pulls capturers toward the enemy HQ and scores finishing its capture above everything; treats enemy capturers near its own HQ as raiders (hit them, or park a unit on the HQ); keeps a quota of capturers and builds an answer to enemy types nothing it owns can hurt; never buys what can neither fight nor capture; flies fuel-burning units home before they run dry; presses when its army is worth at least 80% of the visible enemy's (without this, evenly matched copies stare at each other forever); and keeps units off tiles they would block — its own factories, and for non-capturers, properties still to be taken. `tests/golden/simple_ai_tempo_test.gd` plays AI vs AI on every shipped map and fails if a match doesn't finish.
 
+**Difficulty levels.** A level is an `AIProfile` resource in `data/ai/` (`AIProfileCatalog` lists them in `order`); adding a file adds a menu choice. A profile carries the scoring weights, switches for whole behaviours (`defends_hq`, `counter_builds`, `presses`), the capturer quota, and `income_percent` — a handicap applied to the computer's `PlayerState.income_percent`, which `Economy.income_for` scales by. Normal is the profile's defaults. Easy turns the three behaviours off and earns 67%; Hard plays as Normal and earns 150%. The handicap is what does the work: measured AI vs AI over 30 matches (5 seeds × both seats × 3 maps), Easy with only the behaviours off drew level with Normal (15–15, the seat deciding it), while the shipped Easy loses 3–27 and Hard wins 22–8. A greedy one-ply AI has little skill to take away or add, so income is the honest dial; `tests/golden/simple_ai_levels_test.gd` pins what each switch does.
+
 **Stage 3 — search, if needed.** Full-turn lookahead has a brutal branching factor: 15 units × ~200 reachable tiles × ~4 verbs is ~10⁴ per unit and the turn is a permutation of all of them. Realistic approaches are unit-ordered greedy with limited rollout, or Monte Carlo over the top-k candidate action sequences. Time-slice with a coroutine so the main thread stays responsive; only reach for `WorkerThreadPool` if profiling demands it, and remember the web-export threading caveat.
 
 `AIProfile` as a Resource gives you difficulty levels as data — aggression, risk tolerance, build preferences, whether it uses CO powers optimally — without branching code.
@@ -673,7 +679,7 @@ Save files are tiny and human-readable, replays are free, and desyncs become det
 
 Guard `version` and reject mismatches loudly. A save format that silently half-loads is worse than one that refuses.
 
-**As built (format version 2).** The save also carries the fog and weather options and a `digest`: a checksum of the state its log should replay to (`Replay.digest`). `Replay.run` refuses a log that is illegal *or* lands on a different state — the case where rules or data changed since it was written and every action still happens to be legal. `Battle` records each applied action and autosaves to `user://autosave.json`; the new-match screen offers Continue only while that save still replays, and deletes it otherwise. A decided match removes its save.
+**As built (format versions 2 and 3).** The save also carries the fog and weather options and a `digest`: a checksum of the state its log should replay to (`Replay.digest`). `Replay.run` refuses a log that is illegal *or* lands on a different state — the case where rules or data changed since it was written and every action still happens to be legal. `Battle` records each applied action and autosaves to `user://autosave.json`; the new-match screen offers Continue only while that save still replays, and deletes it otherwise. A decided match removes its save. Version 3 lets each player row carry `funds` (its starting funds, in place of the ruleset's), `income` (its income percent) and `ai` (the difficulty level's key); all three are optional, so versions 1 and 2 still load and play as Normal with the ruleset's funds. They live in the setup rather than the log because they are part of the starting state: `Replay.state_from_map` applies them before the first action.
 
 ---
 

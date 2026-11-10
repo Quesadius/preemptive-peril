@@ -77,6 +77,16 @@ var _view_team: int = 0
 var _ai := SimpleAI.new()
 
 
+## Sets the difficulty the AI plays at (the Normal profile by default).
+func use_ai_profile(profile: AIProfile) -> void:
+	_ai = SimpleAI.new(profile)
+
+
+## The difficulty profile the AI is playing at.
+func ai_profile() -> AIProfile:
+	return _ai.profile
+
+
 ## Binds the controller to a match state. Safe to call again on reload.
 ## If the first player is AI-owned, its turn starts immediately.
 func setup(state: GameState) -> void:

@@ -38,3 +38,4 @@ unit_types = Array[ExtResource("13_ptb8g")]([ExtResource("14_g7jrj"), ExtResourc
 terrain_types = Array[ExtResource("6_uueo5")]([ExtResource("7_shf0k"), ExtResource("8_yq4at"), ExtResource("9_172al"), ExtResource("10_cd6y4"), ExtResource("11_f41ql"), ExtResource("12_i4fyd"), ExtResource("17_f41ql"), ExtResource("19_5odkt")])
 movement_classes = Array[ExtResource("1_2b13u")]([ExtResource("2_0oaax"), ExtResource("3_54s68"), ExtResource("4_rskax"), ExtResource("5_uueo5"), ExtResource("9_iws40")])
 cos = Array[ExtResource("1_cd6y4")]([ExtResource("2_f41ql"), ExtResource("3_i4fyd")])
+starting_funds_options = PackedInt32Array(0, 5000, 10000)

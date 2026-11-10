@@ -5,10 +5,11 @@ extends RefCounted
 ## version field is guarded loudly on load.
 ##
 ## Version 2 adds the weather option and `digest`, a checksum of the
-## state the log should replay to; version 1 files (neither field) still
-## load.
+## state the log should replay to. Version 3 adds per-player starting
+## funds, income percent, and the AI profile key. Older files, lacking
+## those fields, still load with their defaults.
 
-const SAVE_VERSION := 2
+const SAVE_VERSION := 3
 const OLDEST_READABLE_VERSION := 1
 ## Files larger than this are refused unread: a real save is a few
 ## hundred kilobytes at most.
@@ -28,7 +29,9 @@ var weather_enabled: bool = false
 ## unknown (version 1 files). Replay.run() refuses a log that replays to
 ## anything else — rules or data changed since it was written.
 var digest: String = ""
-## {"team": int, "co": StringName, "is_ai": bool} per player.
+## Per player: {"team": int, "co": StringName, "is_ai": bool}, plus the
+## optional "funds": int (starting funds), "income": int (income percent)
+## and "ai": StringName (AI profile key).
 var player_setup: Array[Dictionary] = []
 var action_log: Array[Dictionary] = []
 
@@ -42,9 +45,15 @@ func record(action: Action, ruleset: Ruleset) -> void:
 func to_json(indent: String = "\t") -> String:
 	var setup_plain: Array = []
 	for s: Dictionary in player_setup:
-		setup_plain.append(
-			{"team": s["team"], "co": String(s.get("co", &"")), "is_ai": s.get("is_ai", false)}
-		)
+		var plain: Dictionary = {
+			"team": s["team"], "co": String(s.get("co", &"")), "is_ai": s.get("is_ai", false)
+		}
+		for extra: String in ["funds", "income"]:
+			if s.has(extra):
+				plain[extra] = s[extra]
+		if s.has("ai"):
+			plain["ai"] = String(s["ai"])
+		setup_plain.append(plain)
 	return (
 		JSON
 		. stringify(
@@ -145,7 +154,19 @@ static func from_json(text: String) -> SaveGame:
 		if not (_is_int32(team) and co is String and is_ai is bool):
 			push_error("save player entry has a field of the wrong type")
 			return null
-		save.player_setup.append({"team": int(team), "co": StringName(co), "is_ai": is_ai})
+		var entry: Dictionary = {"team": int(team), "co": StringName(co), "is_ai": is_ai}
+		for extra: String in ["funds", "income"]:
+			if row.has(extra):
+				if not _is_int32(row[extra]):
+					push_error("save player entry has a field of the wrong type")
+					return null
+				entry[extra] = int(row[extra])
+		if row.has("ai"):
+			if not row["ai"] is String:
+				push_error("save player entry has a field of the wrong type")
+				return null
+			entry["ai"] = StringName(row["ai"])
+		save.player_setup.append(entry)
 	for a: Variant in actions:
 		if not a is Dictionary:
 			push_error("save action entry is not an object")
