@@ -3,7 +3,8 @@ extends GdUnitTestSuite
 ## (column, row) on Kenney's 18x11 packed sheet, read off the sheet by
 ## hand: buildings in rows 0-4 and units in rows 5-9 run grey, green,
 ## blue, red, orange; roads fill columns 0-3 of rows 6-9; HP digits are
-## row 10.
+## row 10. Columns 18-19 are the two sprites tools/art adds: Medium Tank
+## and Rockets.
 
 
 func _art() -> ArtSet:
@@ -14,7 +15,7 @@ func _art() -> ArtSet:
 
 func test_covers_the_classic_roster_and_terrain() -> void:
 	var art := _art()
-	assert_that(art.sheet.get_size()).is_equal(Vector2(288, 176))  # 18x11 tiles of 16px
+	assert_that(art.sheet.get_size()).is_equal(Vector2(320, 176))  # 20x11 tiles of 16px
 	assert_float(art.draw_scale()).is_equal_approx(2.0, 0.0001)
 	var rs := load("res://data/rulesets/classic.tres") as Ruleset
 	for unit_type: UnitType in rs.unit_types:
@@ -31,20 +32,42 @@ func test_covers_the_classic_roster_and_terrain() -> void:
 		)
 
 
-func test_units_take_their_team_row_and_borrowed_sprites_are_tagged() -> void:
+func test_units_take_their_team_row() -> void:
 	var art := _art()
 	assert_that(art.unit_tile(&"tank", 0)).is_equal(Vector2i(8, 8))  # red
 	assert_that(art.unit_tile(&"tank", 1)).is_equal(Vector2i(8, 7))  # blue
 	assert_that(art.unit_tile(&"infantry", 0)).is_equal(Vector2i(16, 8))
-	# Medium tanks and rockets borrow the tank and artillery, tagged.
-	assert_that(art.unit_tile(&"md_tank", 0)).is_equal(art.unit_tile(&"tank", 0))
-	assert_that(art.unit_tile(&"rockets", 1)).is_equal(art.unit_tile(&"artillery", 1))
-	assert_that(art.unit_tags[&"md_tank"]).is_equal("MD")
-	assert_that(art.unit_tags[&"rockets"]).is_equal("RK")
-	assert_bool(art.unit_tags.has(&"tank")).is_false()
+	assert_that(art.unit_tile(&"copter", 0)).is_equal(Vector2i(11, 8))
+	assert_that(art.unit_tile(&"bomber", 1)).is_equal(Vector2i(10, 7))
+	# Medium tanks and rockets have sprites of their own in the added
+	# columns, so nothing in the shipped set needs a tag.
+	assert_that(art.unit_tile(&"md_tank", 0)).is_equal(Vector2i(18, 8))
+	assert_that(art.unit_tile(&"rockets", 1)).is_equal(Vector2i(19, 7))
+	assert_bool(art.unit_tags.is_empty()).is_true()
 	assert_that(art.unit_tile(&"battleship", 0)).is_equal(ArtSet.NONE)  # unmapped
 	assert_that(art.unit_tile(&"tank", 9)).is_equal(ArtSet.NONE)  # no such team row
 	assert_array(art.left_facing_teams).contains_exactly([1])
+
+
+func test_added_sprites_are_drawn_from_the_packs_own_pixels() -> void:
+	# The twin cannon: the Medium Tank keeps the tank's turret (base red
+	# at (5,5)) and gains an upper barrel where the tank has only outline.
+	var img := _art().sheet.get_image()
+	img.convert(Image.FORMAT_RGBA8)
+	var outline := Color("3f2631")
+	var steel_light := Color("c0cbdc")
+	assert_that(img.get_pixel(8 * 16 + 11, 8 * 16 + 3)).is_equal(outline)  # tank
+	assert_that(img.get_pixel(18 * 16 + 11, 8 * 16 + 3)).is_equal(steel_light)  # md tank
+	assert_that(img.get_pixel(18 * 16 + 11, 8 * 16 + 6)).is_equal(steel_light)  # lower barrel
+	assert_that(img.get_pixel(18 * 16 + 5, 8 * 16 + 5)).is_equal(
+		img.get_pixel(8 * 16 + 5, 8 * 16 + 5)
+	)
+	# The launcher: a white rocket nose over its dark bore, in every color.
+	for row: int in range(5, 10):
+		assert_that(img.get_pixel(19 * 16 + 3, row * 16 + 4)).is_equal(Color("eef8fe"))
+		assert_that(img.get_pixel(19 * 16 + 3, row * 16 + 5)).is_equal(Color("52607c"))
+	# Blue's chassis strip under the launcher is blue's own dark shade.
+	assert_that(img.get_pixel(19 * 16 + 4, 7 * 16 + 10)).is_equal(Color("0077c5"))
 
 
 func test_buildings_take_their_owners_color() -> void:
@@ -54,6 +77,7 @@ func test_buildings_take_their_owners_color() -> void:
 	assert_that(art.detail_tile(&"city", 1, 0)).is_equal(Vector2i(8, 2))  # blue
 	assert_that(art.detail_tile(&"factory", 0, 0)).is_equal(Vector2i(11, 3))
 	assert_that(art.detail_tile(&"hq", 1, 0)).is_equal(Vector2i(13, 2))
+	assert_that(art.detail_tile(&"airport", 0, 0)).is_equal(Vector2i(14, 3))  # jet on its pad
 	# A team without a color row shows the neutral building.
 	assert_that(art.detail_tile(&"city", 7, 0)).is_equal(Vector2i(8, 0))
 	# Terrain that stands on the ground, and bare ground.
