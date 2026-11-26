@@ -1,0 +1,39 @@
+[gd_resource type="Resource" script_class="COProfile" format=3]
+
+[ext_resource type="Script" path="res://data/schema/co_power.gd" id="1_pow"]
+[ext_resource type="Script" path="res://data/schema/co_profile.gd" id="2_co"]
+
+[sub_resource type="Resource" id="Resource_p1"]
+script = ExtResource("1_pow")
+key = &"ghost_walk"
+display_name = "Ghost Walk"
+description = "+1 movement, +2 vision, +10% attack, +15% defense."
+meter_cost = 300
+attack_bonus = 10
+defense_bonus = 15
+movement_bonus = 1
+vision_bonus = 2
+
+[sub_resource type="Resource" id="Resource_p2"]
+script = ExtResource("1_pow")
+key = &"shadow_ops"
+display_name = "Shadow Ops"
+description = "+1 movement, +3 vision, +25% attack, +10% luck, extra terrain cover."
+meter_cost = 600
+attack_bonus = 25
+defense_bonus = 15
+luck_bonus = 10
+movement_bonus = 1
+vision_bonus = 3
+terrain_defense_bonus = 10
+
+[resource]
+script = ExtResource("2_co")
+key = &"shade"
+display_name = "Shade"
+description = "Ranger: +1 fog vision, ignores weather, +5% cover per terrain star."
+passive_vision_bonus = 1
+passive_terrain_defense_bonus = 5
+ignores_weather = true
+power = SubResource("Resource_p1")
+super_power = SubResource("Resource_p2")

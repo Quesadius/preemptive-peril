@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="COProfile" format=3]
+
+[ext_resource type="Script" path="res://data/schema/co_power.gd" id="1_pow"]
+[ext_resource type="Script" path="res://data/schema/co_profile.gd" id="2_co"]
+
+[sub_resource type="Resource" id="Resource_p1"]
+script = ExtResource("1_pow")
+key = &"tailwind"
+display_name = "Tailwind"
+description = "+1 movement, +20% attack, +10% defense."
+meter_cost = 300
+attack_bonus = 20
+defense_bonus = 10
+movement_bonus = 1
+
+[sub_resource type="Resource" id="Resource_p2"]
+script = ExtResource("1_pow")
+key = &"air_superiority"
+display_name = "Air Superiority"
+description = "+2 movement, +30% attack, +20% defense, +1 HP heal."
+meter_cost = 600
+attack_bonus = 30
+defense_bonus = 20
+heal_hp = 10
+movement_bonus = 2
+
+[resource]
+script = ExtResource("2_co")
+key = &"aero"
+display_name = "Aero"
+description = "Air marshal: +20% air attack and half air fuel burn, -5% defense."
+passive_defense_bonus = -5
+passive_air_attack_bonus = 20
+air_fuel_halved = true
+power = SubResource("Resource_p1")
+super_power = SubResource("Resource_p2")

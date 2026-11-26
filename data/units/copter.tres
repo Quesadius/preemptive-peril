@@ -13,6 +13,9 @@ base_damage = Dictionary[StringName, int]({
 &"anti_air": 25,
 &"apc": 60,
 &"artillery": 65,
+&"battleship": 25,
+&"cruiser": 55,
+&"lander": 25,
 &"md_tank": 25,
 &"recon": 55,
 &"rockets": 65,
@@ -51,7 +54,7 @@ uses_ammo = false
 [resource]
 script = ExtResource("4_xi7tq")
 key = &"copter"
-display_name = "Copter"
+display_name = "Attack Chopper"
 cost = 9000
 movement = 6
 movement_class = ExtResource("1_l0d6y")

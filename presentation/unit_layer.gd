@@ -37,7 +37,10 @@ func sync(state: GameState, perspective_team: int = -1) -> void:
 			view = _make_view()
 			add_child(view)
 			_views[uid] = view
-		view.present(unit, state.ruleset.unit_types[unit.type_id])
+		var capturing: bool = state.map.capture_progress.has(unit.coord)
+		var player := Economy.player_of(state, unit.team)
+		var burning: bool = player != null and player.power_state != PlayerState.PowerState.NONE
+		view.present(unit, state.ruleset.unit_types[unit.type_id], capturing, burning)
 	for uid: int in _views.keys():
 		if not seen.has(uid):
 			var stale: UnitView = _views[uid]

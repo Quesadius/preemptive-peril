@@ -28,6 +28,10 @@ func show_tile(
 	var terrain: TerrainType = state.ruleset.terrain_types[state.map.terrain_at(coord)]
 	_name_label.text = terrain.display_name
 	var parts: Array[String] = ["DEF " + "*".repeat(terrain.defense_stars)]
+	if terrain.attack_bonus_percent > 0:
+		parts.append("+%d%% ATK" % terrain.attack_bonus_percent)
+	if terrain.is_silo:
+		parts.append("Ready")
 	if terrain.capturable:
 		var owner_team: int = state.map.property_owner[state.map.idx(coord)]
 		parts.append("Neutral" if owner_team == MapState.NO_OWNER else "Team %d" % owner_team)

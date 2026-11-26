@@ -17,11 +17,30 @@ const UNIT_KEYS: Array[StringName] = [
 	&"apc",
 	&"copter",
 	&"bomber",
+	&"lander",
+	&"cruiser",
+	&"battleship",
 ]
 const TERRAIN_KEYS: Array[StringName] = [
-	&"plains", &"road", &"forest", &"mountain", &"city", &"factory", &"hq", &"airport"
+	&"plains",
+	&"road",
+	&"forest",
+	&"mountain",
+	&"city",
+	&"factory",
+	&"hq",
+	&"airport",
+	&"sea",
+	&"river",
+	&"bridge",
+	&"port",
+	&"comms_tower",
+	&"silo",
+	&"silo_spent",
 ]
-const CLASS_KEYS: Array[StringName] = [&"foot", &"boots", &"treads", &"tires", &"air"]
+const CLASS_KEYS: Array[StringName] = [
+	&"foot", &"boots", &"treads", &"tires", &"air", &"ship", &"lander"
+]
 
 
 func _classic() -> Ruleset:
@@ -32,9 +51,10 @@ func _classic() -> Ruleset:
 
 func test_loads_with_expected_content() -> void:
 	var rs := _classic()
-	assert_int(rs.unit_types.size()).is_equal(11)
-	assert_int(rs.terrain_types.size()).is_equal(8)
-	assert_int(rs.movement_classes.size()).is_equal(5)
+	assert_int(rs.unit_types.size()).is_equal(14)
+	assert_int(rs.terrain_types.size()).is_equal(15)
+	assert_int(rs.movement_classes.size()).is_equal(7)
+	assert_int(rs.cos.size()).is_equal(7)
 	for i: int in range(UNIT_KEYS.size()):
 		assert_that(rs.unit_types[i].key).is_equal(UNIT_KEYS[i])
 	for i: int in range(TERRAIN_KEYS.size()):

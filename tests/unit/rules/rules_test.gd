@@ -34,7 +34,7 @@ func test_validate_basic_errors() -> void:
 	assert_that(_code(gs, _wait(999, here))).is_equal(ActionError.UNKNOWN_UNIT)
 	assert_that(_code(gs, _wait(enemy.id, [Vector2i(4, 4)]))).is_equal(ActionError.NOT_YOUR_TURN)
 	var future_verb := _wait(inf.id, here)
-	future_verb.verb = UnitAction.Verb.LAUNCH  # silos arrive in a later milestone
+	future_verb.verb = UnitAction.Verb.REPAIR  # repair verb reserved for future milestone
 	assert_that(_code(gs, future_verb)).is_equal(ActionError.VERB_NOT_IMPLEMENTED)
 	assert_that(_code(gs, _wait(inf.id, [Vector2i(1, 0)]))).is_equal(ActionError.ILLEGAL_PATH)
 	var onto_ally: Array[Vector2i] = [Vector2i(0, 0), Vector2i(0, 1)]

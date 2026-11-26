@@ -15,10 +15,23 @@ static func income_for(state: GameState, team: int) -> int:
 		var terrain: TerrainType = state.ruleset.terrain_types[state.map.terrain[i]]
 		total += terrain.income if terrain.income > 0 else state.ruleset.funds_per_property
 	var player := player_of(state, team)
-	if player != null and player.income_percent != 100:
+	var pct: int = player.income_percent if player != null else 100
+	var co := Combat.co_of(state, team)
+	if co != null:
+		pct += co.income_bonus_percent
+	if pct != 100:
 		@warning_ignore("integer_division")
-		total = total * player.income_percent / 100
+		total = total * pct / 100
 	return total
+
+
+## Effective build cost of `unit_type` for `team` (applying CO cost_percent).
+static func unit_cost(state: GameState, team: int, unit_type: UnitType) -> int:
+	var co := Combat.co_of(state, team)
+	if co != null and co.cost_percent != 100:
+		@warning_ignore("integer_division")
+		return maxi(100, unit_type.cost * co.cost_percent / 100)
+	return unit_type.cost
 
 
 ## The PlayerState for `team`, or null if no such player exists.
@@ -46,7 +59,8 @@ static func validate_build(state: GameState, action: BuildAction) -> ActionError
 		return ActionError.new(ActionError.CANNOT_BUILD_TYPE)
 	if state.unit_at(action.coord) != null:
 		return ActionError.new(ActionError.DESTINATION_OCCUPIED)
-	if state.active_player().funds < unit_type.cost:
+	var cost: int = unit_cost(state, team, unit_type)
+	if state.active_player().funds < cost:
 		return ActionError.new(ActionError.INSUFFICIENT_FUNDS)
 	if _headcount(state, team) >= state.ruleset.max_units_per_player:
 		return ActionError.new(ActionError.UNIT_LIMIT_REACHED)
@@ -69,12 +83,13 @@ static func apply_build(state: GameState, action: BuildAction) -> Array[GameEven
 	var team: int = state.active_player().team
 	var unit_type: UnitType = state.ruleset.unit_types[action.unit_type_id]
 	var player := state.active_player()
-	player.funds -= unit_type.cost
+	var cost: int = unit_cost(state, team, unit_type)
+	player.funds -= cost
 	var unit := Ids.create_unit(state, action.unit_type_id, team, action.coord)
 	unit.has_acted = true
 	return [
 		Events.UnitCreated.new(unit.id, action.unit_type_id, team, action.coord),
-		Events.FundsChanged.new(team, -unit_type.cost, player.funds, &"build"),
+		Events.FundsChanged.new(team, -cost, player.funds, &"build"),
 	]
 
 

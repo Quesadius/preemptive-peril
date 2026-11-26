@@ -182,9 +182,8 @@ func load_map(def: MapDefinition, fog: bool = false, weather: bool = false) -> v
 	start_match(options)
 
 
-## Starts a match as `options` describe: Vale (human) vs Rook (AI) on the
-## chosen map, each side with its starting funds, the AI at the chosen
-## difficulty and with that level's income handicap.
+## Starts a match as `options` describe: chosen COs, starting funds,
+## difficulty or 2-player hotseat, fog/weather, and optional puzzle limit.
 func start_match(options: MatchOptions) -> void:
 	_ensure_ruleset()  # callable before _ready (script boots)
 	var level := AIProfileCatalog.find(options.difficulty)
@@ -193,22 +192,36 @@ func start_match(options: MatchOptions) -> void:
 	save.rng_seed = randi_seed_for_match()
 	save.fog_enabled = options.fog
 	save.weather_enabled = options.weather
-	save.player_setup = [
-		{"team": 0, "co": &"vale", "funds": options.player_funds},
-		{
-			"team": 1,
-			"co": &"rook",
-			"is_ai": true,
-			"funds": options.enemy_funds,
-			"income": level.income_percent,
-			"ai": level.key,
-		},
-	]
+	var p0: Dictionary = {
+		"team": 0,
+		"co": options.player_co if options.player_co != &"" else &"vale",
+		"funds": options.player_funds,
+	}
+	if options.initial_player_meter > 0:
+		p0["meter"] = options.initial_player_meter
+	var p1: Dictionary = {
+		"team": 1,
+		"co": options.enemy_co if options.enemy_co != &"" else &"rook",
+		"is_ai": not options.hotseat,
+		"funds": options.enemy_funds,
+		"income": 100 if options.hotseat else level.income_percent,
+		"ai": level.key,
+	}
+	save.player_setup = [p0, p1]
 	var gs := Replay.run(save, ruleset, options.map)
 	if gs == null:
 		push_warning("Battle: map %s failed to build; keeping current state" % options.map.key)
 		return
+	gs.config.turn_limit = options.turn_limit
+	if controller != null:
+		controller.par_days = options.par_days
+		controller.record_key = (
+			options.record_key if options.record_key != &"" else options.map.key
+		)
+		controller.is_hotseat = options.hotseat
 	_begin(options.map, save, gs)
+	if hud != null and not options.briefing.is_empty():
+		hud.flash_notice(options.briefing)
 	_autosave()
 
 
@@ -280,6 +293,7 @@ func _bind(gs: GameState) -> void:
 			controller.restart_requested.connect(play_again)
 			controller.quit_requested.connect(_on_quit_requested)
 			controller.action_committed.connect(_on_action_committed)
+			controller.undo_performed.connect(_on_undo_performed)
 		controller.offer_quit = hand_off_new_match
 		controller.setup(gs)
 
@@ -321,6 +335,16 @@ func _on_action_committed(action: Action, events: Array[GameEvent]) -> void:
 				SaveGame.delete_file(autosave_path)
 			return
 	_autosave()
+
+
+func _on_undo_performed(restored: GameState) -> void:
+	state = restored
+	if event_player != null:
+		event_player.setup(restored)
+	if _save != null and not _save.action_log.is_empty():
+		_save.action_log.pop_back()
+		_save.digest = Replay.digest(state)
+		_autosave()
 
 
 func _autosave() -> void:
@@ -398,6 +422,7 @@ static func assemble(art: ArtSet = null) -> Battle:
 	var player := EventPlayer.new()
 	player.name = "EventPlayer"
 	player.unit_layer = units
+	player.camera_rig = rig
 	var control := BattleController.new()
 	control.name = "BattleController"
 	control.cursor = cur

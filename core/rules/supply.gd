@@ -92,12 +92,17 @@ static func begin_turn_repairs(state: GameState, team: int) -> Array[GameEvent]:
 ## cannot fly (or sail) on empty.
 static func begin_turn_fuel(state: GameState, team: int) -> Array[GameEvent]:
 	var events: Array[GameEvent] = []
+	var co := Combat.co_of(state, team)
 	for u: UnitState in state.units_of(team):
 		if u.carrier_id != -1:
 			continue
 		var unit_type: UnitType = state.ruleset.unit_types[u.type_id]
 		if unit_type.fuel_per_turn > 0 and u.fuel > 0:
-			var amount: int = mini(unit_type.fuel_per_turn, u.fuel)
+			var drain: int = unit_type.fuel_per_turn
+			if co != null and co.air_fuel_halved and Combat.is_airborne(state, u):
+				@warning_ignore("integer_division")
+				drain = maxi(1, drain / 2)
+			var amount: int = mini(drain, u.fuel)
 			u.fuel -= amount
 			events.append(Events.UnitFuelDrained.new(u.id, amount, u.fuel))
 	for u: UnitState in state.units_of(team):

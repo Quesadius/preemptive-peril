@@ -56,7 +56,15 @@ static func state_from_map(
 		var co: Variant = setup.get("co", &"")
 		var funds: Variant = setup.get("funds", ruleset.starting_funds)
 		var income: Variant = setup.get("income", 100)
-		if not (funds is int and income is int and int(funds) >= 0 and int(income) >= 1):
+		var meter: Variant = setup.get("meter", 0)
+		if not (
+			funds is int
+			and income is int
+			and meter is int
+			and int(funds) >= 0
+			and int(income) >= 1
+			and int(meter) >= 0
+		):
 			push_error("match setup entry %s has bad funds or income" % str(setup))
 			return null
 		if not (team is int and is_ai is bool and (co is StringName or co is String)):
@@ -70,6 +78,7 @@ static func state_from_map(
 		p.is_ai = is_ai
 		p.funds = funds
 		p.income_percent = income
+		p.power_meter = meter
 		var co_key := StringName(co)
 		if co_key != &"":
 			for ci: int in range(ruleset.cos.size()):
@@ -157,6 +166,7 @@ static func digest(state: GameState) -> String:
 			]
 		),
 		"next roll %d" % state.rng.clone().roll_range(0, 1 << 30),
+		"terrain %s" % str(state.map.terrain),
 		"owners %s" % str(state.map.property_owner),
 	]
 	for p: PlayerState in state.players:

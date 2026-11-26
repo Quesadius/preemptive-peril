@@ -15,6 +15,10 @@ extends Resource
 @export var is_hq: bool = false
 @export var hides_units: bool = false  # forest / reef
 @export var vision_bonus: int = 0  # mountains
+## Global attack bonus percentage points per owned tile (e.g. comms tower = +10).
+@export var attack_bonus_percent: int = 0
+## True when an infantry/mech standing here may launch a missile silo strike.
+@export var is_silo: bool = false
 ## Movement cost per movement-class key, one PackedInt32Array entry per
 ## weather (indexed by GameState.Weather). -1 = impassable. A class absent
 ## from the dictionary cannot enter this terrain at all.

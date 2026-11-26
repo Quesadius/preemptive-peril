@@ -81,10 +81,24 @@ static func _apply_power(state: GameState, action: PowerAction) -> Array[GameEve
 	player.power_meter -= power.meter_cost
 	player.power_state = action.power_level
 	player.power_turns_left = 1
+	var events: Array[GameEvent] = [
+		Events.PowerActivated.new(player.team, action.power_level, player.co_id)
+	]
 	if power.heal_hp > 0:
 		for u: UnitState in state.units_of(player.team):
 			u.hp = mini(u.hp + power.heal_hp, 100)
-	return [Events.PowerActivated.new(player.team, action.power_level, player.co_id)]
+	if power.refresh_units:
+		for u: UnitState in state.units_of(player.team):
+			if u.carrier_id == -1:
+				u.has_acted = false
+				u.has_moved = false
+	if power.bonus_funds_percent > 0:
+		@warning_ignore("integer_division")
+		var bonus: int = Economy.income_for(state, player.team) * power.bonus_funds_percent / 100
+		if bonus > 0:
+			player.funds += bonus
+			events.append(Events.FundsChanged.new(player.team, bonus, player.funds, &"power"))
+	return events
 
 
 static func _power_for_level(co: COProfile, level: int) -> COPower:
@@ -119,6 +133,7 @@ static func _validate_unit_action(state: GameState, ua: UnitAction) -> ActionErr
 		UnitAction.Verb.UNLOAD,
 		UnitAction.Verb.SUPPLY,
 		UnitAction.Verb.JOIN,
+		UnitAction.Verb.LAUNCH,
 	]
 	if not implemented.has(ua.verb):
 		return ActionError.new(ActionError.VERB_NOT_IMPLEMENTED)
@@ -143,6 +158,8 @@ static func _validate_unit_action(state: GameState, ua: UnitAction) -> ActionErr
 			return Supply.validate_supply(state, unit, dest)
 		UnitAction.Verb.UNLOAD:
 			return Transport.validate_unload(state, unit, dest, ua.cargo_index, ua.target_coord)
+		UnitAction.Verb.LAUNCH:
+			return Silo.validate(state, unit, dest, ua.target_coord)
 	return null
 
 
@@ -158,7 +175,8 @@ static func _validate_attack(
 	if target == null or target.team == unit.team:
 		return ActionError.new(ActionError.NO_TARGET)
 	var dist: int = Grid.manhattan(dest, ua.target_coord)
-	if dist < unit_type.attack_range_min or dist > unit_type.attack_range_max:
+	var max_r: int = Combat.attack_range_max_for(state, unit)
+	if dist < unit_type.attack_range_min or dist > max_r:
 		return ActionError.new(ActionError.TARGET_OUT_OF_RANGE)
 	if Combat.usable_weapon(state, unit, target) == null:
 		return ActionError.new(ActionError.CANNOT_ATTACK_TARGET)
@@ -223,6 +241,8 @@ static func _apply_unit_action(state: GameState, ua: UnitAction) -> Array[GameEv
 			events.append_array(
 				Transport.apply_unload(state, unit, ua.cargo_index, ua.target_coord)
 			)
+		UnitAction.Verb.LAUNCH:
+			events.append_array(Silo.apply(state, unit, ua.target_coord))
 	if state.units.has(ua.unit_id):  # the attacker may have died to the counter
 		unit.has_acted = true
 		events.append(Events.UnitExhausted.new(ua.unit_id))

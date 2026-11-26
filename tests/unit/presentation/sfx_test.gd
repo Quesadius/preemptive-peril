@@ -12,6 +12,7 @@ const KEYS: Array[StringName] = [
 	&"attack",
 	&"ambush",
 	&"destroy",
+	&"silo",
 	&"capture",
 	&"captured",
 	&"build",
@@ -150,10 +151,6 @@ func test_fog_keeps_unseen_actions_silent() -> void:
 	assert_that(player.sound_for(Events.TurnStarted.new(1, 2))).is_equal(&"turn")
 	assert_that(player.sound_for(Events.PropertyCaptured.new(Vector2i(4, 4), 1, 0))).is_equal(
 		&"captured"
-	)
-	(
-		assert_that(player.sound_for(Events.UnitAmbushed.new(seen.id, hidden.id, Vector2i(0, 1))))
-		. is_equal(&"ambush")
 	)
 	(
 		assert_that(player.sound_for(Events.UnitAmbushed.new(seen.id, hidden.id, Vector2i(0, 1))))

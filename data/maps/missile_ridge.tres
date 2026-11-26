@@ -1,0 +1,63 @@
+[gd_resource type="Resource" script_class="MapDefinition" format=3]
+
+[ext_resource type="Script" path="res://data/schema/map_definition.gd" id="1_theld"]
+
+[resource]
+script = ExtResource("1_theld")
+key = &"missile_ridge"
+display_name = "Missile Ridge"
+width = 14
+terrain_palette = Array[StringName]([&"plains", &"forest", &"road", &"hq", &"factory", &"city", &"mountain", &"silo", &"comms_tower"])
+terrain = PackedInt32Array(0, 0, 0, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 3, 4, 2, 2, 5, 0, 0, 5, 2, 2, 5, 0, 0, 0, 4, 0, 1, 0, 6, 6, 6, 6, 0, 1, 0, 5, 0, 0, 2, 2, 2, 0, 0, 7, 0, 8, 0, 2, 2, 2, 0, 0, 0, 5, 0, 2, 0, 0, 0, 0, 2, 0, 1, 0, 0, 0, 0, 1, 0, 2, 0, 0, 0, 0, 2, 0, 5, 0, 0, 0, 2, 2, 2, 0, 8, 0, 7, 0, 0, 2, 2, 2, 0, 0, 5, 0, 1, 0, 6, 6, 6, 6, 0, 1, 0, 4, 0, 0, 0, 5, 2, 2, 5, 0, 0, 5, 2, 2, 4, 3, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0)
+property_owner = PackedInt32Array(-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1)
+starting_units = Array[Dictionary]([{
+"team": 0,
+"type": &"infantry",
+"x": 3,
+"y": 3
+}, {
+"team": 1,
+"type": &"infantry",
+"x": 10,
+"y": 6
+}, {
+"team": 0,
+"type": &"infantry",
+"x": 2,
+"y": 3
+}, {
+"team": 1,
+"type": &"infantry",
+"x": 11,
+"y": 6
+}, {
+"team": 0,
+"type": &"apc",
+"x": 2,
+"y": 2
+}, {
+"team": 1,
+"type": &"apc",
+"x": 11,
+"y": 7
+}, {
+"team": 0,
+"type": &"tank",
+"x": 3,
+"y": 1
+}, {
+"team": 1,
+"type": &"tank",
+"x": 10,
+"y": 8
+}, {
+"team": 0,
+"type": &"recon",
+"x": 4,
+"y": 1
+}, {
+"team": 1,
+"type": &"recon",
+"x": 9,
+"y": 8
+}])

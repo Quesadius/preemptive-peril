@@ -6,9 +6,6 @@ extends Node2D
 ## so nothing of a finished match can linger or take input behind it.
 ## The match in progress is saved after every action; while a save that
 ## still replays exists, the setup screen offers to continue it.
-##
-## For a look at a battle without the menu:
-##   godot --path . -s tools/preview_battle.gd
 
 const AUTOSAVE_PATH := "user://autosave.json"
 const RULESET_PATH := "res://data/rulesets/classic.tres"
@@ -16,8 +13,6 @@ const RULESET_PATH := "res://data/rulesets/classic.tres"
 var _setup: MatchSetup
 var _battle: Battle
 var _touch: bool = false
-## The saved match the setup screen is offering, and its already-replayed
-## state + map definition so Continue doesn't replay the log a second time.
 var _resumable: SaveGame
 var _resumable_state: GameState
 var _resumable_def: MapDefinition
@@ -25,9 +20,6 @@ var _resumable_def: MapDefinition
 
 func _ready() -> void:
 	_touch = DisplayServer.is_touchscreen_available()
-	# Browsers and touch devices size the layout to the screen (phones get
-	# readable text and fill portrait or landscape); native desktop windows
-	# keep the fixed 1280x720 layout from project settings.
 	if OS.has_feature("web") or _touch:
 		ScreenFit.attach(get_window())
 	_setup = MatchSetup.new()
@@ -35,6 +27,7 @@ func _ready() -> void:
 	_setup.start_requested.connect(_start_match)
 	_setup.continue_requested.connect(_continue_match)
 	_setup.sound_toggled.connect(_on_sound_toggled)
+	_setup.music_toggled.connect(_on_music_toggled)
 	_show_setup()
 
 
@@ -44,6 +37,9 @@ func _show_setup() -> void:
 	if _battle != null:
 		_battle.queue_free()
 		_battle = null
+	var audio := get_node_or_null("/root/AudioDirector")
+	if audio != null and audio.has_method("stop_music"):
+		audio.stop_music()
 	var settings := _settings()
 	var last_map: String = settings.get_setting("last_map")
 	var difficulty: String = settings.get_setting("difficulty")
@@ -54,29 +50,51 @@ func _show_setup() -> void:
 	remembered.difficulty = StringName(difficulty)
 	remembered.player_funds = settings.get_setting("player_funds")
 	remembered.enemy_funds = settings.get_setting("enemy_funds")
+	remembered.player_co = StringName(str(settings.get_setting("player_co")))
+	remembered.enemy_co = StringName(str(settings.get_setting("enemy_co")))
+	remembered.hotseat = bool(settings.get_setting("hotseat"))
 	var sound: bool = settings.get_setting("sound_on")
-	var funds_choices := (load(RULESET_PATH) as Ruleset).starting_funds_options
-	_setup.open(MapCatalog.all(), AIProfileCatalog.all(), funds_choices, remembered, sound)
+	var music: bool = settings.get_setting("music_on")
+	var rs := load(RULESET_PATH) as Ruleset
+	_setup.open(
+		MapCatalog.all(),
+		AIProfileCatalog.all(),
+		rs.starting_funds_options,
+		remembered,
+		sound,
+		rs.cos,
+		MissionCatalog.missions(),
+		MissionCatalog.puzzles(),
+		ProgressStore.load_all(),
+		music
+	)
 	_setup.set_continue(_find_resumable())
 
 
 func _start_match(options: MatchOptions) -> void:
 	var settings := _settings()
-	(
-		settings
-		. set_settings(
-			{
-				"last_map": String(options.map.key),
-				"fog_default": options.fog,
-				"weather_default": options.weather,
-				"difficulty": String(options.difficulty),
-				"player_funds": options.player_funds,
-				"enemy_funds": options.enemy_funds,
-			}
+	if MapCatalog.find(options.map.key) != null:
+		(
+			settings
+			. set_settings(
+				{
+					"last_map": String(options.map.key),
+					"fog_default": options.fog,
+					"weather_default": options.weather,
+					"difficulty": String(options.difficulty),
+					"player_funds": options.player_funds,
+					"enemy_funds": options.enemy_funds,
+					"player_co": String(options.player_co),
+					"enemy_co": String(options.enemy_co),
+					"hotseat": options.hotseat,
+				}
+			)
 		)
-	)
 	Sfx.play(self, &"select")
 	_new_battle()
+	# Only autosave maps that can be resolved back by key on reload.
+	if MapCatalog.find(options.map.key) == null and MissionCatalog.find(options.map.key) == null:
+		_battle.autosave_path = ""
 	_battle.start_match(options)
 	_enter_battle()
 
@@ -90,14 +108,12 @@ func _continue_match() -> void:
 	_resumable_state = null
 	_resumable_def = null
 	if not _battle.resume(_resumable, pre_state, pre_def):
-		_show_setup()  # no longer replayable: back to the menu, offer withdrawn
+		_show_setup()
 		return
 	Sfx.play(self, &"select")
 	_enter_battle()
 
 
-## A fresh battle, not yet in the tree: its match is loaded first, so it
-## never builds its fallback demo.
 func _new_battle() -> void:
 	_battle = Battle.assemble(Battle.default_art())
 	_battle.hand_off_new_match = true
@@ -108,14 +124,9 @@ func _new_battle() -> void:
 func _enter_battle() -> void:
 	_setup.close()
 	add_child(_battle)
-	# Back and danger-map buttons, and finger-sized menu rows, wherever a
-	# touchscreen exists (phones, tablets, touch laptops).
 	_battle.hud.set_touch_mode(_touch)
 
 
-## Looks for a saved match that still replays under today's rules and
-## maps; returns the label to offer it with, or "" (deleting a save that
-## can't be continued, so it isn't tried again).
 func _find_resumable() -> String:
 	_resumable = null
 	_resumable_state = null
@@ -124,6 +135,10 @@ func _find_resumable() -> String:
 	if save == null:
 		return ""
 	var def := MapCatalog.find(save.map_key)
+	if def == null:
+		var mission := MissionCatalog.find(save.map_key)
+		if mission != null:
+			def = mission.map
 	var replayed: GameState = null
 	if def != null:
 		replayed = Replay.run(save, load(RULESET_PATH) as Ruleset, def)
@@ -138,10 +153,19 @@ func _find_resumable() -> String:
 
 func _on_sound_toggled(on: bool) -> void:
 	_settings().set_setting("sound_on", on)
-	Sfx.play(self, &"select")  # heard only when it was just switched on
+	var audio := get_node_or_null("/root/AudioDirector")
+	if audio != null and audio.has_method("refresh_music"):
+		audio.refresh_music()
+	Sfx.play(self, &"select")
 
 
-## The SettingsStore autoload, reached by path: autoload names aren't
-## visible to a script that is parse-checked on its own.
+func _on_music_toggled(on: bool) -> void:
+	_settings().set_setting("music_on", on)
+	var audio := get_node_or_null("/root/AudioDirector")
+	if audio != null and audio.has_method("refresh_music"):
+		audio.refresh_music()
+	Sfx.play(self, &"select")
+
+
 func _settings() -> Node:
 	return get_node("/root/SettingsStore")

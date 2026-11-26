@@ -21,5 +21,6 @@ heal_hp = 20
 script = ExtResource("2_gpqiq")
 key = &"vale"
 display_name = "Vale"
+description = "Balanced commander with no weaknesses. Powers rally and heal the entire army."
 power = SubResource("Resource_noj1t")
 super_power = SubResource("Resource_r4g3p")

@@ -14,7 +14,17 @@ func test_catalog_lists_maps_by_name_and_finds_by_key() -> void:
 	var names: Array[String] = []
 	for def: MapDefinition in MapCatalog.all():
 		names.append(def.display_name)
-	var expected: Array[String] = ["Crossroads", "Gauntlet", "Highlands"]
+	var expected: Array[String] = [
+		"Archipelago",
+		"Crossroads",
+		"Gauntlet",
+		"Highlands",
+		"Iron Valley",
+		"Missile Ridge",
+		"Pocket Blitz",
+		"Twin Bridges",
+		"Whispering Woods",
+	]
 	assert_array(names).contains_exactly(expected)
 	assert_that(MapCatalog.find(&"gauntlet").display_name).is_equal("Gauntlet")
 	assert_object(MapCatalog.find(&"atlantis")).is_null()

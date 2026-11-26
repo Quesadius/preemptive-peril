@@ -35,7 +35,13 @@ const TERRAIN_COLORS: Dictionary[StringName, Color] = {
 	&"factory": Color(0.5, 0.5, 0.56),
 	&"hq": Color(0.93, 0.8, 0.35),
 	&"airport": Color(0.62, 0.66, 0.78),
-	&"sea": Color(0.25, 0.45, 0.75),
+	&"sea": Color(0.2, 0.44, 0.74),
+	&"river": Color(0.28, 0.58, 0.85),
+	&"bridge": Color(0.68, 0.64, 0.58),
+	&"port": Color(0.45, 0.56, 0.72),
+	&"comms_tower": Color(0.68, 0.72, 0.82),
+	&"silo": Color(0.62, 0.56, 0.56),
+	&"silo_spent": Color(0.46, 0.48, 0.52),
 }
 
 @export var terrain_layer: TileMapLayer
@@ -103,9 +109,8 @@ func update_tile(state: GameState, c: Vector2i) -> void:
 			terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
 			detail_layer.erase_cell(c)
 			return
-		terrain_layer.set_cell(c, ART_SOURCE, art_set.ground_tile(c))
-		var mask: int = road_mask(state, c) if terrain.key == art_set.road_terrain else 0
-		var detail := art_set.detail_tile(terrain.key, owner_team, mask)
+		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(terrain.key, c))
+		var detail := _detail_for(state, c, terrain.key, owner_team)
 		if detail != ArtSet.NONE:
 			detail_layer.set_cell(c, ART_SOURCE, detail)
 		else:
@@ -141,7 +146,39 @@ func _is_road(state: GameState, c: Vector2i) -> bool:
 	if not state.map.in_bounds(c):
 		return false
 	var terrain: TerrainType = state.ruleset.terrain_types[state.map.terrain_at(c)]
-	return terrain.key == art_set.road_terrain
+	return terrain.key == art_set.road_terrain or terrain.key == &"bridge"
+
+
+func _detail_for(state: GameState, c: Vector2i, key: StringName, owner_team: int) -> Vector2i:
+	if key == &"bridge" and art_set.bridge_tiles.size() >= 2:
+		var road_ew: bool = (
+			_is_road(state, c + Vector2i.LEFT) or _is_road(state, c + Vector2i.RIGHT)
+		)
+		var road_ns: bool = _is_road(state, c + Vector2i.UP) or _is_road(state, c + Vector2i.DOWN)
+		if road_ns and not road_ew:
+			return art_set.bridge_tiles[1]
+		if road_ew and not road_ns:
+			return art_set.bridge_tiles[0]
+		var has_ew: bool = (
+			_is_land_or_bridge(state, c + Vector2i.LEFT)
+			or _is_land_or_bridge(state, c + Vector2i.RIGHT)
+		)
+		var has_ns: bool = (
+			_is_land_or_bridge(state, c + Vector2i.UP)
+			or _is_land_or_bridge(state, c + Vector2i.DOWN)
+		)
+		if has_ns and not has_ew:
+			return art_set.bridge_tiles[1]
+		return art_set.bridge_tiles[0]
+	var mask: int = road_mask(state, c) if key == art_set.road_terrain else 0
+	return art_set.detail_tile(key, owner_team, mask)
+
+
+func _is_land_or_bridge(state: GameState, c: Vector2i) -> bool:
+	if not state.map.in_bounds(c):
+		return false
+	var key: StringName = state.ruleset.terrain_types[state.map.terrain_at(c)].key
+	return key != &"sea" and key != &"river"
 
 
 func _art_ready() -> bool:
@@ -174,9 +211,8 @@ func _render_art(state: GameState) -> void:
 		if not art_set.draws_on_ground(terrain.key):
 			terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
 			continue
-		terrain_layer.set_cell(c, ART_SOURCE, art_set.ground_tile(c))
-		var mask: int = road_mask(state, c) if terrain.key == art_set.road_terrain else 0
-		var detail := art_set.detail_tile(terrain.key, state.map.property_owner[i], mask)
+		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(terrain.key, c))
+		var detail := _detail_for(state, c, terrain.key, state.map.property_owner[i])
 		if detail != ArtSet.NONE:
 			detail_layer.set_cell(c, ART_SOURCE, detail)
 

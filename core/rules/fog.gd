@@ -25,6 +25,12 @@ static func compute(state: GameState, team: int) -> PackedByteArray:
 		var radius: int = unit_type.vision
 		if not Combat.is_airborne(state, unit):
 			radius += under.vision_bonus  # flyers aren't standing on the mountain
+		var co := Combat.co_of(state, team)
+		if co != null:
+			radius += co.passive_vision_bonus
+			var active := Combat.active_power(state, team)
+			if active != null:
+				radius += active.vision_bonus
 		for c: Vector2i in Grid.coords_in_range(unit.coord, 0, radius):
 			if state.map.in_bounds(c):
 				mask[state.map.idx(c)] = 1

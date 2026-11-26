@@ -1,0 +1,48 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/ship.tres" id="1_mc"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_dt"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_wp"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_ut"]
+
+[sub_resource type="Resource" id="Resource_dt_pri"]
+script = ExtResource("2_dt")
+key = &"naval_cannons"
+base_damage = Dictionary[StringName, int]({
+&"anti_air": 85,
+&"apc": 80,
+&"artillery": 80,
+&"battleship": 50,
+&"cruiser": 95,
+&"infantry": 95,
+&"lander": 95,
+&"md_tank": 55,
+&"mech": 90,
+&"recon": 90,
+&"rockets": 85,
+&"tank": 80
+})
+
+[sub_resource type="Resource" id="Resource_wp_pri"]
+script = ExtResource("3_wp")
+key = &"naval_cannons"
+display_name = "Naval Guns"
+damage_table = SubResource("Resource_dt_pri")
+
+[resource]
+script = ExtResource("4_ut")
+key = &"battleship"
+display_name = "Battleship"
+cost = 28000
+movement = 5
+movement_class = ExtResource("1_mc")
+vision = 2
+max_fuel = 99
+fuel_per_turn = 1
+crashes_without_fuel = true
+primary_weapon = SubResource("Resource_wp_pri")
+max_ammo = 9
+attack_range_min = 2
+attack_range_max = 6
+can_move_and_fire = false
+built_at = Array[StringName]([&"port"])

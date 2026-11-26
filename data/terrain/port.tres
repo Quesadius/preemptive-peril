@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="TerrainType" format=3]
+
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="1_mc"]
+[ext_resource type="Resource" path="res://data/movement_classes/ship.tres" id="2_ship"]
+[ext_resource type="Resource" path="res://data/movement_classes/lander.tres" id="3_lander"]
+[ext_resource type="Script" path="res://data/schema/terrain_type.gd" id="4_tt"]
+
+[resource]
+script = ExtResource("4_tt")
+key = &"port"
+display_name = "Port"
+defense_stars = 3
+is_property = true
+capturable = true
+income = 1000
+repairs_classes = Array[ExtResource("1_mc")]([ExtResource("2_ship"), ExtResource("3_lander")])
+builds = &"port"
+move_costs = Dictionary[StringName, PackedInt32Array]({
+&"air": PackedInt32Array(1, 1, 2),
+&"boots": PackedInt32Array(1, 1, 1),
+&"foot": PackedInt32Array(1, 1, 1),
+&"lander": PackedInt32Array(1, 1, 2),
+&"ship": PackedInt32Array(1, 1, 2),
+&"tires": PackedInt32Array(1, 1, 1),
+&"treads": PackedInt32Array(1, 1, 1)
+})

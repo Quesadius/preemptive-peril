@@ -6,10 +6,12 @@ extends CanvasLayer
 ## assign it to `theme_override` in the editor; until then a minimal
 ## dark theme is built in code.
 
-## Touch bar buttons: Back (one step back, like Esc) and the danger map
-## (like D) — the keys a touchscreen doesn't have.
+## Touch/QoL bar buttons: Back (Esc), Danger map (D), Next idle unit (Tab),
+## and Undo last move (Z).
 signal back_pressed
 signal danger_pressed
+signal next_unit_pressed
+signal undo_pressed
 
 ## Menu row height in touch mode: a comfortable fingertip.
 const TOUCH_ROW_HEIGHT := 40.0
@@ -124,6 +126,12 @@ func _init() -> void:
 	_danger_button.toggle_mode = true
 	_danger_button.pressed.connect(func() -> void: danger_pressed.emit())
 	touch_bar.add_child(_danger_button)
+	var next_btn := _touch_button("Next")
+	next_btn.pressed.connect(func() -> void: next_unit_pressed.emit())
+	touch_bar.add_child(next_btn)
+	var undo_btn := _touch_button("Undo")
+	undo_btn.pressed.connect(func() -> void: undo_pressed.emit())
+	touch_bar.add_child(undo_btn)
 	# Stacked under the status line, top-left: one button wide fits the
 	# side margin the centered board leaves on tablets and landscape
 	# phones, and portrait boards sit well below it.
@@ -149,9 +157,13 @@ func refresh(state: GameState) -> void:
 	var sky := ""
 	if state.weather != GameState.Weather.CLEAR:
 		sky = "   %s" % weather_name(state.weather)
+	var day_txt := (
+		"Day %d/%d" % [state.day, state.config.turn_limit]
+		if state.config.turn_limit > 0
+		else "Day %d" % state.day
+	)
 	status_label.text = (
-		"Day %d   Team %d%s   Funds %d%s%s"
-		% [state.day, player.team, ai_tag, player.funds, co_tag, sky]
+		"%s   Team %d%s   Funds %d%s%s" % [day_txt, player.team, ai_tag, player.funds, co_tag, sky]
 	)
 
 
@@ -186,12 +198,27 @@ func show_damage_preview(preview: Combat.DamagePreview) -> void:
 	damage_panel.show_preview(preview)
 
 
-## Reacts to played events: the turn banner.
-func on_events(events: Array[GameEvent]) -> void:
+## Reacts to played events: turn, weather, CO power, and silo banners.
+func on_events(events: Array[GameEvent], state: GameState = null) -> void:
 	for e: GameEvent in events:
 		if e is Events.TurnStarted:
 			var started := e as Events.TurnStarted
 			_flash_banner("Day %d — Team %d" % [started.day, started.team])
+		elif e is Events.PowerActivated:
+			var pa := e as Events.PowerActivated
+			var label := "CO POWER!"
+			if state != null:
+				var co := Combat.co_of(state, pa.team)
+				if co != null:
+					var pow_def := (
+						co.super_power if pa.level == PlayerState.PowerState.SUPER else co.power
+					)
+					if pow_def != null:
+						var kind := "SUPER" if pa.level == PlayerState.PowerState.SUPER else "POWER"
+						label = "%s: %s — %s!" % [kind, co.display_name, pow_def.display_name]
+			_flash_banner(label)
+		elif e is Events.SiloLaunched:
+			_flash_banner("MISSILE LAUNCH!")
 		elif e is Events.WeatherChanged:
 			# Arrives after the day's TurnStarted, so the weather is what stays up.
 			var turn := e as Events.WeatherChanged
@@ -199,6 +226,12 @@ func on_events(events: Array[GameEvent]) -> void:
 				_flash_banner("The skies clear")
 			else:
 				_flash_banner("%s — slower going" % weather_name(turn.new_weather))
+
+
+## Flashes a short mission/puzzle briefing or status notice at the top.
+func flash_notice(text: String) -> void:
+	if not text.is_empty():
+		_flash_banner(text)
 
 
 ## Touchscreen affordances on or off: the Back/Danger bar and taller,

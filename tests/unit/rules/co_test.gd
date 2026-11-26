@@ -7,7 +7,7 @@ extends GdUnitTestSuite
 
 func test_classic_commanders_load() -> void:
 	var rs := load("res://data/rulesets/classic.tres") as Ruleset
-	assert_int(rs.cos.size()).is_equal(2)
+	assert_int(rs.cos.size()).is_equal(7)
 	assert_that(rs.cos[0].key).is_equal(&"vale")
 	assert_that(rs.cos[1].key).is_equal(&"rook")
 	for co: COProfile in rs.cos:

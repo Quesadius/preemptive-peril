@@ -51,7 +51,17 @@ func test_lists_maps_and_shows_remembered_choices() -> void:
 	remembered.enemy_funds = 5000
 	_open(screen, remembered)
 	assert_bool(screen.visible).is_true()
-	var maps: Array[String] = ["Crossroads  12×10", "Gauntlet  8×12", "Highlands  18×12"]
+	var maps: Array[String] = [
+		"Archipelago  14×10",
+		"Crossroads  12×10",
+		"Gauntlet  8×12",
+		"Highlands  18×12",
+		"Iron Valley  14×10",
+		"Missile Ridge  14×10",
+		"Pocket Blitz  9×8",
+		"Twin Bridges  14×10",
+		"Whispering Woods  12×10",
+	]
 	assert_array(_captions(screen.map_buttons())).contains_exactly(maps)
 	assert_that(screen.selected_map().key).is_equal(&"gauntlet")
 	var options: Array[String] = ["Fog of war: On", "Random weather: Off", "Sound: On"]
@@ -72,7 +82,7 @@ func test_choices_no_longer_on_offer_fall_back() -> void:
 	stale.difficulty = &"nightmare"
 	stale.player_funds = 7777
 	_open(screen, stale, false)
-	assert_that(screen.selected_map().key).is_equal(&"crossroads")
+	assert_that(screen.selected_map().key).is_equal(&"archipelago")
 	var choices: Array[String] = ["Difficulty: Normal", "Your funds: 0", "Enemy funds: 0"]
 	assert_array(_captions(screen.choice_buttons())).contains_exactly(choices)
 	assert_that(screen.level_note()).is_equal("An even fight.")
@@ -84,8 +94,8 @@ func test_start_reports_everything_chosen() -> void:
 	_open(screen, _remembered(&"crossroads"))
 	var started: Array[MatchOptions] = []
 	screen.start_requested.connect(func(options: MatchOptions) -> void: started.append(options))
-	screen.map_buttons()[2].button_pressed = true  # Highlands; the group unpicks Crossroads
-	assert_bool(screen.map_buttons()[0].button_pressed).is_false()
+	screen.map_buttons()[3].button_pressed = true  # Highlands; the group unpicks Crossroads
+	assert_bool(screen.map_buttons()[1].button_pressed).is_false()
 	var weather := screen.option_buttons()[1]
 	weather.button_pressed = true
 	assert_that(weather.text).is_equal("Random weather: On")

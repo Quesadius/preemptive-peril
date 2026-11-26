@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="COProfile" format=3]
+
+[ext_resource type="Script" path="res://data/schema/co_power.gd" id="1_pow"]
+[ext_resource type="Script" path="res://data/schema/co_profile.gd" id="2_co"]
+
+[sub_resource type="Resource" id="Resource_p1"]
+script = ExtResource("1_pow")
+key = &"barrage"
+display_name = "Barrage"
+description = "+1 indirect range, +20% attack, +10% defense."
+meter_cost = 300
+attack_bonus = 20
+defense_bonus = 10
+indirect_range_bonus = 1
+
+[sub_resource type="Resource" id="Resource_p2"]
+script = ExtResource("1_pow")
+key = &"firestorm"
+display_name = "Firestorm"
+description = "+2 indirect range, +35% attack, +15% defense."
+meter_cost = 600
+attack_bonus = 35
+defense_bonus = 15
+indirect_range_bonus = 2
+
+[resource]
+script = ExtResource("2_co")
+key = &"nova"
+display_name = "Nova"
+description = "Siege specialist: +25% indirect firepower, -10% direct combat. Powers extend range."
+passive_direct_attack_bonus = -10
+passive_indirect_attack_bonus = 25
+power = SubResource("Resource_p1")
+super_power = SubResource("Resource_p2")

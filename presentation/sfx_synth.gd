@@ -46,6 +46,14 @@ static func build_all() -> Dictionary[StringName, AudioStream]:
 	out[&"destroy"] = _stream(
 		_mix(_tone(0.0, 0.0, 0.45, noise, 0.4), _tone(220.0, 40.0, 0.45, tri, 0.4))
 	)
+	out[&"silo"] = _stream(
+		_join(
+			[
+				_tone(240.0, 960.0, 0.22, sq, 0.18),
+				_mix(_tone(0.0, 0.0, 0.55, noise, 0.45), _tone(160.0, 32.0, 0.55, tri, 0.48)),
+			]
+		)
+	)
 	out[&"capture"] = _stream(_join([_tone(C5, C5, 0.08, tri, 0.4), _tone(G5, G5, 0.12, tri, 0.4)]))
 	out[&"captured"] = _stream(_notes([C5, E5, G5, C6], 0.09, tri, 0.4))
 	out[&"build"] = _stream(_notes([G4, C5, E5], 0.07, sq, 0.2))

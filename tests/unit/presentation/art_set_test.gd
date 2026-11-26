@@ -44,8 +44,11 @@ func test_units_take_their_team_row() -> void:
 	# columns, so nothing in the shipped set needs a tag.
 	assert_that(art.unit_tile(&"md_tank", 0)).is_equal(Vector2i(18, 8))
 	assert_that(art.unit_tile(&"rockets", 1)).is_equal(Vector2i(19, 7))
+	assert_that(art.unit_tile(&"lander", 0)).is_equal(Vector2i(13, 8))
+	assert_that(art.unit_tile(&"battleship", 0)).is_equal(Vector2i(14, 8))
+	assert_that(art.unit_tile(&"cruiser", 1)).is_equal(Vector2i(15, 7))
 	assert_bool(art.unit_tags.is_empty()).is_true()
-	assert_that(art.unit_tile(&"battleship", 0)).is_equal(ArtSet.NONE)  # unmapped
+	assert_that(art.unit_tile(&"submarine", 0)).is_equal(ArtSet.NONE)  # unmapped
 	assert_that(art.unit_tile(&"tank", 9)).is_equal(ArtSet.NONE)  # no such team row
 	assert_array(art.left_facing_teams).contains_exactly([1])
 
@@ -80,10 +83,14 @@ func test_buildings_take_their_owners_color() -> void:
 	assert_that(art.detail_tile(&"city", 0, 0)).is_equal(Vector2i(8, 3))  # red
 	assert_that(art.detail_tile(&"city", 1, 0)).is_equal(Vector2i(8, 2))  # blue
 	assert_that(art.detail_tile(&"factory", 0, 0)).is_equal(Vector2i(11, 3))
-	# The HQ is the spired building (column 14); the airport is the control
-	# tower over a runway to its right (column 15).
-	assert_that(art.detail_tile(&"hq", 1, 0)).is_equal(Vector2i(14, 2))
-	assert_that(art.detail_tile(&"hq", 0, 0)).is_equal(Vector2i(14, 3))
+	# The HQ is the grand command building (col 10), Port has the crane (col 12),
+	# Comms Tower is the radar dish (col 13), Silo is the missile pad (col 14),
+	# and Airport is the control tower over a runway (col 15).
+	assert_that(art.detail_tile(&"hq", 1, 0)).is_equal(Vector2i(10, 2))
+	assert_that(art.detail_tile(&"hq", 0, 0)).is_equal(Vector2i(10, 3))
+	assert_that(art.detail_tile(&"port", 0, 0)).is_equal(Vector2i(12, 3))
+	assert_that(art.detail_tile(&"comms_tower", 1, 0)).is_equal(Vector2i(13, 2))
+	assert_that(art.detail_tile(&"silo", MapState.NO_OWNER, 0)).is_equal(Vector2i(14, 0))
 	assert_that(art.detail_tile(&"airport", 0, 0)).is_equal(Vector2i(15, 3))
 	assert_that(art.detail_tile(&"airport", MapState.NO_OWNER, 0)).is_equal(Vector2i(15, 0))
 	# A team without a color row shows the neutral building.

@@ -87,6 +87,12 @@ static func for_unit(state: GameState, unit_id: int) -> Array[Action]:
 			out.append(attack)
 		if Capture.validate(state, unit, dest) == null:
 			out.append(_verb_action(unit_id, path, UnitAction.Verb.CAPTURE))
+		if Silo.can_launch_at(state, unit, dest):
+			for y: int in range(state.map.height):
+				for x: int in range(state.map.width):
+					var launch := _verb_action(unit_id, path, UnitAction.Verb.LAUNCH)
+					launch.target_coord = Vector2i(x, y)
+					out.append(launch)
 		if Supply.validate_supply(state, unit, dest) == null:
 			out.append(_verb_action(unit_id, path, UnitAction.Verb.SUPPLY))
 		for cargo_index: int in range(unit.cargo.size()):
@@ -109,10 +115,10 @@ static func _verb_action(unit_id: int, path: Array[Vector2i], verb: int) -> Unit
 
 
 ## Verbs available if `unit_id` stops on `dest`, in menu order (ATTACK
-## then CAPTURE, SUPPLY, UNLOAD, then WAIT; ally-occupied destinations
-## offer LOAD or JOIN instead). Empty when the unit cannot act or cannot
-## reach `dest`. Pass `skip_reach_check = true` when the caller already
-## verified `dest` is reachable.
+## then CAPTURE, LAUNCH, SUPPLY, UNLOAD, then WAIT; ally-occupied
+## destinations offer LOAD or JOIN instead). Empty when the unit cannot
+## act or cannot reach `dest`. Pass `skip_reach_check = true` when the
+## caller already verified `dest` is reachable.
 static func verbs_at(
 	state: GameState, unit_id: int, dest: Vector2i, skip_reach_check: bool = false
 ) -> Array[int]:
@@ -134,6 +140,8 @@ static func verbs_at(
 		out.append(UnitAction.Verb.ATTACK)
 	if Capture.validate(state, unit, dest) == null:
 		out.append(UnitAction.Verb.CAPTURE)
+	if Silo.can_launch_at(state, unit, dest):
+		out.append(UnitAction.Verb.LAUNCH)
 	if Supply.validate_supply(state, unit, dest) == null:
 		out.append(UnitAction.Verb.SUPPLY)
 	if _has_unload_option(state, unit, dest, mask):
@@ -143,8 +151,8 @@ static func verbs_at(
 
 
 ## Legal UnitActions for `unit_id` ending at `dest` along `path` for one
-## target-choosing verb (ATTACK or UNLOAD), without re-running pathfinding
-## over the entire board.
+## target-choosing verb (ATTACK, UNLOAD, or LAUNCH), without re-running
+## pathfinding over the entire board.
 static func target_actions_at(
 	state: GameState, unit_id: int, path: Array[Vector2i], verb: int, cargo_index: int = -1
 ) -> Array[UnitAction]:
@@ -175,6 +183,13 @@ static func target_actions_at(
 					unload.cargo_index = ci
 					unload.target_coord = drop
 					out.append(unload)
+	elif verb == UnitAction.Verb.LAUNCH:
+		if Silo.can_launch_at(state, unit, dest):
+			for y: int in range(state.map.height):
+				for x: int in range(state.map.width):
+					var launch := _verb_action(unit_id, path, UnitAction.Verb.LAUNCH)
+					launch.target_coord = Vector2i(x, y)
+					out.append(launch)
 	return out
 
 

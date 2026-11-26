@@ -24,19 +24,26 @@ static func check(state: GameState, events: Array[GameEvent]) -> Array[GameEvent
 			affected[captured.old_team] = true
 			if _is_hq(state, state.map.idx(captured.coord)):
 				lost_hq[captured.old_team] = true
-	if affected.is_empty():
-		return []
 	var out: Array[GameEvent] = []
 	var newly_dead: bool = false
-	for p: PlayerState in state.players:
-		if not p.is_alive or not affected.has(p.team):
-			continue
-		var reason := _loss_reason(state, p.team, lost_hq.has(p.team))
-		if reason == &"":
-			continue
-		p.is_alive = false
-		newly_dead = true
-		out.append(Events.PlayerEliminated.new(p.team, reason))
+	# Puzzle turn-limit loss: if team 0 ran out of days without winning.
+	if state.config.turn_limit > 0 and state.day > state.config.turn_limit:
+		for p: PlayerState in state.players:
+			if p.team == 0 and p.is_alive:
+				p.is_alive = false
+				newly_dead = true
+				out.append(Events.PlayerEliminated.new(0, &"turn_limit"))
+				break
+	if not affected.is_empty():
+		for p: PlayerState in state.players:
+			if not p.is_alive or not affected.has(p.team):
+				continue
+			var reason := _loss_reason(state, p.team, lost_hq.has(p.team))
+			if reason == &"":
+				continue
+			p.is_alive = false
+			newly_dead = true
+			out.append(Events.PlayerEliminated.new(p.team, reason))
 	if newly_dead:
 		var alive: Array[PlayerState] = []
 		for p: PlayerState in state.players:

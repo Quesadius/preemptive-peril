@@ -48,7 +48,7 @@ func to_json(indent: String = "\t") -> String:
 		var plain: Dictionary = {
 			"team": s["team"], "co": String(s.get("co", &"")), "is_ai": s.get("is_ai", false)
 		}
-		for extra: String in ["funds", "income"]:
+		for extra: String in ["funds", "income", "meter"]:
 			if s.has(extra):
 				plain[extra] = s[extra]
 		if s.has("ai"):
@@ -169,7 +169,7 @@ static func from_json(text: String) -> SaveGame:
 			push_error("save player entry has a field of the wrong type")
 			return null
 		var entry: Dictionary = {"team": int(team), "co": StringName(co), "is_ai": is_ai}
-		for extra: String in ["funds", "income"]:
+		for extra: String in ["funds", "income", "meter"]:
 			if row.has(extra):
 				if not _is_int32(row[extra]):
 					push_error("save player entry has a field of the wrong type")

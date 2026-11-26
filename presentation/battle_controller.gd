@@ -21,6 +21,8 @@ signal quit_requested
 ## An action — the player's or the AI's — was just applied to the state;
 ## `events` is what it did. Emitted before the animation plays.
 signal action_committed(action: Action, events: Array[GameEvent])
+## Emitted when the human undoes their last non-destructive wait move.
+signal undo_performed(restored: GameState)
 
 enum State {
 	IDLE,
@@ -37,6 +39,7 @@ enum State {
 const VERB_LABELS: Dictionary[int, String] = {
 	UnitAction.Verb.ATTACK: "Attack",
 	UnitAction.Verb.CAPTURE: "Capture",
+	UnitAction.Verb.LAUNCH: "Launch",
 	UnitAction.Verb.SUPPLY: "Supply",
 	UnitAction.Verb.UNLOAD: "Unload",
 	UnitAction.Verb.LOAD: "Load",
@@ -54,6 +57,10 @@ const VERB_LABELS: Dictionary[int, String] = {
 ## Adds "Quit to menu" to the system menu (set when something is
 ## listening for quit_requested).
 @export var offer_quit: bool = false
+## Par days for S-rank Speed scoring, ProgressStore key, and 2P hotseat flag.
+var par_days: int = 12
+var record_key: StringName = &""
+var is_hotseat: bool = false
 
 var _state: GameState
 var _phase: State = State.IDLE
@@ -65,6 +72,7 @@ var _current_path: Array[Vector2i] = []
 var _targets: Array[Vector2i] = []
 var _target_actions: Dictionary[Vector2i, UnitAction] = {}
 var _target_is_attack: bool = false
+var _target_is_silo: bool = false
 var _target_index: int = 0
 var _dest_verbs: Array[int] = []
 var _dest_cargo_indices: Array[int] = []
@@ -73,9 +81,17 @@ var _menu_system: bool = false
 var _inspecting: bool = false
 var _danger_on: bool = false
 var _system_entries: Array[Action] = []
+var _system_tags: Array[StringName] = []
 var _build_coord: Vector2i = Vector2i.ZERO
 var _view_team: int = 0
 var _ai := SimpleAI.new()
+var _undo_snapshot: GameState
+## Per-match rank stats (for human team 0).
+var _turn_kills: int = 0
+var _best_turn_kills: int = 0
+var _units_built: int = 0
+var _units_lost: int = 0
+var _enemies_destroyed: int = 0
 
 
 ## Sets the difficulty the AI plays at (the Normal profile by default).
@@ -93,6 +109,12 @@ func ai_profile() -> AIProfile:
 func setup(state: GameState) -> void:
 	_state = state
 	_reset_selection()
+	_undo_snapshot = null
+	_turn_kills = 0
+	_best_turn_kills = 0
+	_units_built = 0
+	_units_lost = 0
+	_enemies_destroyed = 0
 	_phase = State.IDLE
 	if not _state.active_player().is_ai:
 		_view_team = _state.active_player().team
@@ -106,12 +128,73 @@ func setup(state: GameState) -> void:
 			hud.build_menu.cancelled.connect(_on_build_cancelled)
 			hud.back_pressed.connect(cancel)
 			hud.danger_pressed.connect(toggle_danger)
+			hud.next_unit_pressed.connect(focus_next_idle_unit)
+			hud.undo_pressed.connect(undo_last_move)
 		hud.hide_result()
 		hud.refresh(_state)
 		if cursor != null:
 			hud.inspect(_state, cursor.coord, _view_team)
 	_refresh_fog()
+	_sync_music()
 	_run_ai_turns()
+
+
+## True when the last non-destructive move can be undone.
+func can_undo() -> bool:
+	return _undo_snapshot != null and _phase == State.IDLE
+
+
+## Undoes the last human WAIT move (when no combat, capture, build, or
+## fog reveal occurred).
+func undo_last_move() -> void:
+	if not can_undo():
+		return
+	var restored := _undo_snapshot
+	_undo_snapshot = null
+	_state = restored
+	_reset_selection()
+	_refresh_fog()
+	if hud != null:
+		hud.refresh(_state)
+		if cursor != null:
+			hud.inspect(_state, cursor.coord, _view_team)
+	Sfx.play(self, &"cancel")
+	undo_performed.emit(_state)
+
+
+## Moves the cursor to the next unacted unit of the active human player.
+func focus_next_idle_unit() -> void:
+	if _state == null or _phase != State.IDLE or cursor == null:
+		return
+	var team: int = _state.active_player().team
+	if _state.active_player().is_ai:
+		return
+	var idle: Array[Vector2i] = []
+	for u: UnitState in _state.units_of(team):
+		if not u.has_acted and u.carrier_id == -1:
+			idle.append(u.coord)
+	if idle.is_empty():
+		if hud != null:
+			hud.flash_notice("All units acted")
+		return
+	idle.sort_custom(
+		func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x)
+	)
+	var cur_idx: int = idle.find(cursor.coord)
+	var next_coord: Vector2i = idle[(cur_idx + 1) % idle.size()]
+	cursor.move_to(next_coord)
+	Sfx.play(self, &"select")
+
+
+## Count of unacted units for the active player.
+func idle_unit_count() -> int:
+	if _state == null:
+		return 0
+	var count: int = 0
+	for u: UnitState in _state.units_of(_state.active_player().team):
+		if not u.has_acted and u.carrier_id == -1:
+			count += 1
+	return count
 
 
 ## Fog and unit visibility are always drawn from the human player's
@@ -211,7 +294,9 @@ func _cancel_in_phase() -> void:
 				hud.build_menu.cancel_out()
 		State.TARGET_SELECT:
 			_targets = []
+			_target_is_silo = false
 			overlay.show_targets([])
+			overlay.show_silo_blast([])
 			cursor.move_to(_current_path[_current_path.size() - 1])  # back to the unit
 			if hud != null:
 				hud.show_damage_preview(null)
@@ -224,9 +309,9 @@ func _cancel_in_phase() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	# While targeting, the arrows cycle targets instead of roaming the
-	# cursor (this node sees input before the Cursor in tree order).
-	if _phase == State.TARGET_SELECT:
+	# While targeting attacks/unloads, arrows cycle targets; while aiming a
+	# missile silo, arrows roam the cursor freely across the board.
+	if _phase == State.TARGET_SELECT and not _target_is_silo:
 		if event.is_action_pressed("ui_right", true) or event.is_action_pressed("ui_down", true):
 			cycle_target(1)
 			get_viewport().set_input_as_handled()
@@ -243,6 +328,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		var key := event as InputEventKey
 		if key.keycode == KEY_D and not key.echo:
 			toggle_danger()
+			get_viewport().set_input_as_handled()
+		elif key.keycode == KEY_TAB and not key.echo:
+			focus_next_idle_unit()
+			get_viewport().set_input_as_handled()
+		elif key.keycode == KEY_Z and not key.echo:
+			undo_last_move()
 			get_viewport().set_input_as_handled()
 
 
@@ -265,6 +356,7 @@ func _confirm_idle() -> void:
 		if hud != null:
 			_menu_system = true
 			_system_entries = []
+			_system_tags = []
 			var labels: Array[String] = []
 			for power_action: Action in ActionGenerator.powers(_state):
 				var pa := power_action as PowerAction
@@ -273,11 +365,18 @@ func _confirm_idle() -> void:
 					co.super_power if pa.power_level == PlayerState.PowerState.SUPER else co.power
 				)
 				_system_entries.append(pa)
+				_system_tags.append(&"action")
 				labels.append("Power: %s" % power.display_name)
+			if can_undo():
+				_system_entries.append(null)
+				_system_tags.append(&"undo")
+				labels.append("Undo Move")
 			_system_entries.append(EndTurnAction.new())
+			_system_tags.append(&"action")
 			labels.append("End Turn")
 			if offer_quit:
-				_system_entries.append(null)  # not an Action: handled in _on_menu_chosen
+				_system_entries.append(null)
+				_system_tags.append(&"quit")
 				labels.append("Quit to menu")
 			_phase = State.ACTION_MENU
 			hud.action_menu.open(labels)
@@ -375,8 +474,14 @@ func _on_menu_chosen(index: int) -> void:
 	if _menu_system:
 		_menu_system = false
 		var entry: Action = _system_entries[index]
+		var tag: StringName = _system_tags[index] if index < _system_tags.size() else &"action"
 		_system_entries = []
-		if entry == null:
+		_system_tags = []
+		if tag == &"undo":
+			_phase = State.IDLE
+			undo_last_move()
+			return
+		if entry == null or tag == &"quit":
 			_phase = State.IDLE
 			quit_requested.emit()
 			return
@@ -384,8 +489,12 @@ func _on_menu_chosen(index: int) -> void:
 		return
 	var verb: int = _dest_verbs[index]
 	var cargo_index: int = _dest_cargo_indices[index]
-	if verb == UnitAction.Verb.ATTACK or verb == UnitAction.Verb.UNLOAD:
-		# Both pick a tile next: attack targets or unload drop tiles.
+	if (
+		verb == UnitAction.Verb.ATTACK
+		or verb == UnitAction.Verb.UNLOAD
+		or verb == UnitAction.Verb.LAUNCH
+	):
+		# Pick a target tile next: attack targets, unload drop tiles, or silo aim.
 		_enter_target_select(verb, cargo_index)
 		return
 	_commit(_unit_action(verb, Vector2i.ZERO))
@@ -396,6 +505,7 @@ func _on_menu_chosen(index: int) -> void:
 func _enter_target_select(verb: int, cargo_index: int = -1) -> void:
 	_target_actions = {}
 	_target_is_attack = verb == UnitAction.Verb.ATTACK
+	_target_is_silo = verb == UnitAction.Verb.LAUNCH
 	for ua: UnitAction in ActionGenerator.target_actions_at(
 		_state, _selected_unit_id, _current_path, verb, cargo_index
 	):
@@ -405,9 +515,24 @@ func _enter_target_select(verb: int, cargo_index: int = -1) -> void:
 	_targets.sort_custom(
 		func(a: Vector2i, b: Vector2i) -> bool: return a.y < b.y or (a.y == b.y and a.x < b.x)
 	)
-	overlay.show_targets(_targets)
 	_phase = State.TARGET_SELECT
 	_target_index = 0
+	if _target_is_silo:
+		overlay.show_targets([])
+		# Aim initially at the nearest enemy unit, or map center.
+		var aim := cursor.coord
+		var best_dist: int = 9999
+		for uid: int in _state.units:
+			var u: UnitState = _state.units[uid]
+			if u.team != _state.active_player().team and u.carrier_id == -1:
+				var d: int = Grid.manhattan(cursor.coord, u.coord)
+				if d < best_dist:
+					best_dist = d
+					aim = u.coord
+		cursor.move_to(aim)
+		overlay.show_silo_blast(Silo.blast_tiles(_state, aim))
+		return
+	overlay.show_targets(_targets)
 	if not _targets.is_empty():
 		cursor.move_to(_targets[0])  # snap; the moved signal shows the forecast
 
@@ -452,6 +577,9 @@ func _on_cursor_moved(c: Vector2i) -> void:
 	if _phase == State.IDLE:
 		_clear_inspection()
 	if _phase == State.TARGET_SELECT:
+		if _target_is_silo:
+			overlay.show_silo_blast(Silo.blast_tiles(_state, c))
+			return
 		var idx: int = _targets.find(c)
 		if idx >= 0:
 			_target_index = idx
@@ -511,7 +639,12 @@ func _commit(action: Action) -> void:
 		return
 	_phase = State.EXECUTING
 	var pre_mask := Fog.mask_for(_state, _view_team)
+	var undo_candidate: GameState = null
+	if action is UnitAction and (action as UnitAction).verb == UnitAction.Verb.WAIT:
+		undo_candidate = _state.clone()
 	var events := Rules.apply(_state, action)
+	_update_undo_after(undo_candidate, pre_mask, events)
+	_record_stats(events)
 	action_committed.emit(action, events)
 	await event_player.play(events, pre_mask, false)
 	_reset_selection()
@@ -523,8 +656,9 @@ func _commit(action: Action) -> void:
 		hud.refresh(_state)
 		if cursor != null:
 			hud.inspect(_state, cursor.coord, _view_team)
-		hud.on_events(events)
+		hud.on_events(events, _state)
 	_settle(events)
+	_sync_music()
 	await _run_ai_turns()
 
 
@@ -532,6 +666,7 @@ func _commit(action: Action) -> void:
 ## through the same validate/apply/animate pipeline the human uses.
 func _run_ai_turns() -> void:
 	while _phase == State.IDLE and _state.active_player().is_ai:
+		_undo_snapshot = null
 		_phase = State.ENEMY_TURN
 		var view := StateView.for_team(_state, _state.active_player().team)
 		var action := _ai.choose_action(view)
@@ -540,6 +675,7 @@ func _run_ai_turns() -> void:
 			action = EndTurnAction.new()
 		var pre_mask := Fog.mask_for(_state, _view_team)
 		var events := Rules.apply(_state, action)
+		_record_stats(events)
 		action_committed.emit(action, events)
 		await event_player.play(events, pre_mask, false)
 		_apply_map_events(events)
@@ -550,18 +686,73 @@ func _run_ai_turns() -> void:
 			hud.refresh(_state)
 			if cursor != null:
 				hud.inspect(_state, cursor.coord, _view_team)
-			hud.on_events(events)
+			hud.on_events(events, _state)
 		_settle(events)
+		_sync_music()
 
 
-## Redraws only map cells whose ownership changed, avoiding full-board
-## TileMapLayer rebuilds after ordinary moves and combat.
+## Redraws only map cells whose ownership or terrain changed (captures, silos).
 func _apply_map_events(events: Array[GameEvent]) -> void:
 	if map_renderer == null:
 		return
 	for e: GameEvent in events:
 		if e is Events.PropertyCaptured:
 			map_renderer.update_tile(_state, (e as Events.PropertyCaptured).coord)
+		elif e is Events.SiloLaunched:
+			map_renderer.update_tile(_state, (e as Events.SiloLaunched).silo_coord)
+
+
+func _update_undo_after(
+	candidate: GameState, pre_mask: PackedByteArray, events: Array[GameEvent]
+) -> void:
+	_undo_snapshot = null
+	if candidate == null:
+		return
+	for e: GameEvent in events:
+		if e is Events.UnitAmbushed:
+			return
+	if _state.config.fog_enabled:
+		var post_mask := Fog.mask_for(_state, _view_team)
+		for i: int in range(mini(pre_mask.size(), post_mask.size())):
+			if post_mask[i] > pre_mask[i]:
+				return  # revealed new fog: cannot undo scouting
+	_undo_snapshot = candidate
+
+
+func _record_stats(events: Array[GameEvent]) -> void:
+	for e: GameEvent in events:
+		if e is Events.TurnStarted:
+			if (e as Events.TurnStarted).team == 0:
+				_turn_kills = 0
+		elif e is Events.UnitCreated:
+			if (e as Events.UnitCreated).team == 0:
+				_units_built += 1
+		elif e is Events.UnitDestroyed:
+			var dead := e as Events.UnitDestroyed
+			if dead.team == 0:
+				_units_lost += 1
+			else:
+				_enemies_destroyed += 1
+				_turn_kills += 1
+				_best_turn_kills = maxi(_best_turn_kills, _turn_kills)
+
+
+func _sync_music() -> void:
+	if not is_inside_tree():
+		return
+	var audio := get_node_or_null("/root/AudioDirector")
+	if audio == null or not audio.has_method("play_music"):
+		return
+	if _phase == State.GAME_OVER or _state == null:
+		audio.stop_music()
+		return
+	var p := _state.active_player()
+	if p.power_state != PlayerState.PowerState.NONE:
+		audio.play_music(&"power")
+	elif p.is_ai:
+		audio.play_music(&"enemy_turn")
+	else:
+		audio.play_music(&"player_turn")
 
 
 ## Lands the phase after a committed action: IDLE, or GAME_OVER with the
@@ -578,14 +769,40 @@ func _settle(events: Array[GameEvent]) -> void:
 		_phase = State.IDLE
 		return
 	_phase = State.GAME_OVER
+	var hotseat: bool = is_hotseat
 	var won: bool = ended.winning_team == _view_team
-	Sfx.play(self, &"victory" if won else &"defeat")
+	Sfx.play(self, &"victory" if (won or hotseat) else &"defeat")
 	if hud != null:
-		hud.show_result(result_text(won, reason))
+		var msg := result_text(won, reason)
+		if hotseat:
+			msg = ("Team %d Wins!\nPress Enter or click to play again." % ended.winning_team)
+		elif won and record_key != &"":
+			var rank := MatchRank.evaluate(
+				_state.day,
+				par_days,
+				_best_turn_kills,
+				_units_built,
+				_units_lost,
+				_enemies_destroyed
+			)
+			if is_inside_tree() and DisplayServer.get_name() != "headless":
+				ProgressStore.record_win(record_key, rank)
+			msg = ("Victory!\n%s\nPress Enter or click to play again." % rank.summary_text())
+		hud.show_result(msg)
+
+
+func _is_hotseat() -> bool:
+	if _state == null or _state.players.size() < 2:
+		return false
+	var humans: int = 0
+	for p: PlayerState in _state.players:
+		if not p.is_ai:
+			humans += 1
+	return humans >= 2
 
 
 ## The game-over message from the viewing player's side. `reason` is the
-## final elimination's (Victory's "hq_captured" or "routed").
+## final elimination's (Victory's "hq_captured", "routed", or "turn_limit").
 static func result_text(won: bool, reason: StringName) -> String:
 	var how := ""
 	match reason:
@@ -593,6 +810,8 @@ static func result_text(won: bool, reason: StringName) -> String:
 			how = "Enemy HQ captured." if won else "Your HQ has fallen."
 		&"routed":
 			how = "The enemy army is routed." if won else "Your army is routed."
+		&"turn_limit":
+			how = "Out of turns!"
 	var headline := "Victory!" if won else "Defeat"
 	return "%s\n%s\nPress Enter or click to play again." % [headline, how]
 
@@ -603,6 +822,7 @@ static func result_text(won: bool, reason: StringName) -> String:
 func _build_rows(coord: Vector2i) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	var terrain: TerrainType = _state.ruleset.terrain_types[_state.map.terrain_at(coord)]
+	var team: int = _state.active_player().team
 	for type_id: int in range(_state.ruleset.unit_types.size()):
 		var unit_type: UnitType = _state.ruleset.unit_types[type_id]
 		if not unit_type.built_at.has(terrain.builds):
@@ -610,12 +830,13 @@ func _build_rows(coord: Vector2i) -> Array[Dictionary]:
 		var probe := BuildAction.new()
 		probe.unit_type_id = type_id
 		probe.coord = coord
+		var cost: int = Economy.unit_cost(_state, team, unit_type)
 		(
 			rows
 			. append(
 				{
 					"type_id": type_id,
-					"label": "%s  %dG" % [unit_type.display_name, unit_type.cost],
+					"label": "%s  %dG" % [unit_type.display_name, cost],
 					"affordable": Rules.validate(_state, probe) == null,
 				}
 			)
@@ -635,11 +856,13 @@ func _reset_selection() -> void:
 	_targets = []
 	_target_actions = {}
 	_target_is_attack = false
+	_target_is_silo = false
 	_target_index = 0
 	_dest_verbs = []
 	_dest_cargo_indices = []
 	_dest_labels = []
 	_menu_system = false
+	_system_tags = []
 	if overlay != null:
 		overlay.clear()
 	if hud != null:

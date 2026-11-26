@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/lander.tres" id="1_mc"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="2_ut"]
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="3_mc"]
+[ext_resource type="Resource" path="res://data/movement_classes/foot.tres" id="4_foot"]
+[ext_resource type="Resource" path="res://data/movement_classes/boots.tres" id="5_boots"]
+[ext_resource type="Resource" path="res://data/movement_classes/treads.tres" id="6_treads"]
+[ext_resource type="Resource" path="res://data/movement_classes/tires.tres" id="7_tires"]
+
+[resource]
+script = ExtResource("2_ut")
+key = &"lander"
+display_name = "Lander"
+cost = 12000
+movement = 6
+movement_class = ExtResource("1_mc")
+vision = 1
+max_fuel = 99
+fuel_per_turn = 1
+crashes_without_fuel = true
+transport_capacity = 2
+transportable_classes = Array[ExtResource("3_mc")]([ExtResource("4_foot"), ExtResource("5_boots"), ExtResource("6_treads"), ExtResource("7_tires")])
+built_at = Array[StringName]([&"port"])

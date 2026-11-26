@@ -11,3 +11,5 @@ var fog_enabled: bool = false
 var random_weather: bool = false
 ## Key of the ruleset variant this match uses (StringName, never an index).
 var ruleset_key: StringName = &""
+## Optional turn limit for puzzles (> 0: team 0 loses once day exceeds this).
+var turn_limit: int = 0

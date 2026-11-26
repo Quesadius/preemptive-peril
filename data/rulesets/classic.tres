@@ -31,11 +31,28 @@
 [ext_resource type="Resource" path="res://data/units/apc.tres" id="23_shf0k"]
 [ext_resource type="Resource" path="res://data/units/copter.tres" id="30_6v3ih"]
 [ext_resource type="Resource" path="res://data/units/bomber.tres" id="31_0egn8"]
+[ext_resource type="Resource" path="res://data/movement_classes/ship.tres" id="32_ship"]
+[ext_resource type="Resource" path="res://data/movement_classes/lander.tres" id="33_lander"]
+[ext_resource type="Resource" path="res://data/terrain/sea.tres" id="34_sea"]
+[ext_resource type="Resource" path="res://data/terrain/river.tres" id="35_river"]
+[ext_resource type="Resource" path="res://data/terrain/bridge.tres" id="36_bridge"]
+[ext_resource type="Resource" path="res://data/terrain/port.tres" id="37_port"]
+[ext_resource type="Resource" path="res://data/terrain/comms_tower.tres" id="38_comms"]
+[ext_resource type="Resource" path="res://data/terrain/silo.tres" id="39_silo"]
+[ext_resource type="Resource" path="res://data/terrain/silo_spent.tres" id="40_spent"]
+[ext_resource type="Resource" path="res://data/units/lander.tres" id="41_u_lander"]
+[ext_resource type="Resource" path="res://data/units/cruiser.tres" id="42_u_cruiser"]
+[ext_resource type="Resource" path="res://data/units/battleship.tres" id="43_u_bship"]
+[ext_resource type="Resource" path="res://data/cos/blitz.tres" id="44_blitz"]
+[ext_resource type="Resource" path="res://data/cos/nova.tres" id="45_nova"]
+[ext_resource type="Resource" path="res://data/cos/aero.tres" id="46_aero"]
+[ext_resource type="Resource" path="res://data/cos/midas.tres" id="47_midas"]
+[ext_resource type="Resource" path="res://data/cos/shade.tres" id="48_shade"]
 
 [resource]
 script = ExtResource("5_51ja1")
-unit_types = Array[ExtResource("13_ptb8g")]([ExtResource("14_g7jrj"), ExtResource("15_iws40"), ExtResource("16_5odkt"), ExtResource("17_6v3ih"), ExtResource("19_shf0k"), ExtResource("20_yq4at"), ExtResource("21_172al"), ExtResource("22_cd6y4"), ExtResource("23_shf0k"), ExtResource("30_6v3ih"), ExtResource("31_0egn8")])
-terrain_types = Array[ExtResource("6_uueo5")]([ExtResource("7_shf0k"), ExtResource("8_yq4at"), ExtResource("9_172al"), ExtResource("10_cd6y4"), ExtResource("11_f41ql"), ExtResource("12_i4fyd"), ExtResource("17_f41ql"), ExtResource("19_5odkt")])
-movement_classes = Array[ExtResource("1_2b13u")]([ExtResource("2_0oaax"), ExtResource("3_54s68"), ExtResource("4_rskax"), ExtResource("5_uueo5"), ExtResource("9_iws40")])
-cos = Array[ExtResource("1_cd6y4")]([ExtResource("2_f41ql"), ExtResource("3_i4fyd")])
+unit_types = Array[ExtResource("13_ptb8g")]([ExtResource("14_g7jrj"), ExtResource("15_iws40"), ExtResource("16_5odkt"), ExtResource("17_6v3ih"), ExtResource("19_shf0k"), ExtResource("20_yq4at"), ExtResource("21_172al"), ExtResource("22_cd6y4"), ExtResource("23_shf0k"), ExtResource("30_6v3ih"), ExtResource("31_0egn8"), ExtResource("41_u_lander"), ExtResource("42_u_cruiser"), ExtResource("43_u_bship")])
+terrain_types = Array[ExtResource("6_uueo5")]([ExtResource("7_shf0k"), ExtResource("8_yq4at"), ExtResource("9_172al"), ExtResource("10_cd6y4"), ExtResource("11_f41ql"), ExtResource("12_i4fyd"), ExtResource("17_f41ql"), ExtResource("19_5odkt"), ExtResource("34_sea"), ExtResource("35_river"), ExtResource("36_bridge"), ExtResource("37_port"), ExtResource("38_comms"), ExtResource("39_silo"), ExtResource("40_spent")])
+movement_classes = Array[ExtResource("1_2b13u")]([ExtResource("2_0oaax"), ExtResource("3_54s68"), ExtResource("4_rskax"), ExtResource("5_uueo5"), ExtResource("9_iws40"), ExtResource("32_ship"), ExtResource("33_lander")])
+cos = Array[ExtResource("1_cd6y4")]([ExtResource("2_f41ql"), ExtResource("3_i4fyd"), ExtResource("44_blitz"), ExtResource("45_nova"), ExtResource("46_aero"), ExtResource("47_midas"), ExtResource("48_shade")])
 starting_funds_options = PackedInt32Array(0, 5000, 10000)

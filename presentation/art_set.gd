@@ -28,6 +28,14 @@ const NONE := Vector2i(-1, -1)
 @export var ground_tiles: Array[Vector2i] = []
 ## Non-property terrain drawn over the ground: key -> tile.
 @export var terrain_tiles: Dictionary[StringName, Vector2i] = {}
+## Terrains that draw their own base tile instead of grass (e.g. sea, river).
+@export var base_tiles: Dictionary[StringName, Vector2i] = {}
+## Bridge detail tiles: [horizontal, vertical] drawn over water/ground.
+@export var bridge_tiles: Array[Vector2i] = []
+## Team flag column (same row order as buildings) for capture indicators.
+@export var flag_column: int = -1
+## Low-fuel warning badge tile on the sheet (NONE if unmapped).
+@export var fuel_icon_tile: Vector2i = NONE
 
 ## The road terrain key and its 16 shapes, indexed by the mask of road
 ## neighbors (N=1, E=2, S=4, W=8; MapRenderer.road_mask() decides when an
@@ -71,15 +79,37 @@ func region(tile: Vector2i) -> Rect2:
 
 
 ## True when this set draws terrain `key` on a ground tile (bare ground,
-## road, mapped terrain, or a mapped building). Anything else falls back
-## to its flat placeholder color.
+## road, bridge, mapped terrain, or a mapped building). Anything else falls
+## back to its flat placeholder color.
 func draws_on_ground(key: StringName) -> bool:
 	return (
 		ground_terrains.has(key)
 		or key == road_terrain
+		or key == &"bridge"
 		or terrain_tiles.has(key)
 		or building_columns.has(key)
+		or base_tiles.has(key)
 	)
+
+
+## The base tile for `key` at `coord`: its dedicated base tile if mapped
+## (e.g. sea, river), otherwise the deterministic grass ground variant.
+func base_tile_for(key: StringName, coord: Vector2i) -> Vector2i:
+	if base_tiles.has(key):
+		return base_tiles[key]
+	if key == &"bridge" and base_tiles.has(&"sea"):
+		return base_tiles[&"sea"]
+	return ground_tile(coord)
+
+
+## Team flag tile for `team` (row matches team_building_rows), or NONE.
+func flag_tile(team: int) -> Vector2i:
+	if flag_column < 0:
+		return NONE
+	var row := neutral_building_row
+	if team >= 0 and team < team_building_rows.size():
+		row = team_building_rows[team]
+	return Vector2i(flag_column, row)
 
 
 ## The ground variant for `coord`.

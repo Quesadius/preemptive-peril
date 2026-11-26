@@ -13,10 +13,14 @@ const DEFAULTS: Dictionary[String, Variant] = {
 	"fog_default": false,
 	"weather_default": false,
 	"sound_on": true,
+	"music_on": true,
 	"last_map": "crossroads",
 	"difficulty": "normal",
 	"player_funds": 0,
 	"enemy_funds": 0,
+	"player_co": "vale",
+	"enemy_co": "rook",
+	"hotseat": false,
 }
 
 var _values: Dictionary[String, Variant] = {}

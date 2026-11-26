@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="UnitType" format=3]
+
+[ext_resource type="Resource" path="res://data/movement_classes/ship.tres" id="1_mc"]
+[ext_resource type="Script" path="res://data/schema/damage_table.gd" id="2_dt"]
+[ext_resource type="Script" path="res://data/schema/weapon_profile.gd" id="3_wp"]
+[ext_resource type="Script" path="res://data/schema/unit_type.gd" id="4_ut"]
+
+[sub_resource type="Resource" id="Resource_dt_pri"]
+script = ExtResource("2_dt")
+key = &"cruiser_missiles"
+base_damage = Dictionary[StringName, int]({
+&"battleship": 45,
+&"cruiser": 55,
+&"lander": 75
+})
+
+[sub_resource type="Resource" id="Resource_wp_pri"]
+script = ExtResource("3_wp")
+key = &"cruiser_missiles"
+display_name = "Torpedoes"
+damage_table = SubResource("Resource_dt_pri")
+
+[sub_resource type="Resource" id="Resource_dt_sec"]
+script = ExtResource("2_dt")
+key = &"cruiser_aa"
+base_damage = Dictionary[StringName, int]({
+&"bomber": 85,
+&"copter": 115
+})
+
+[sub_resource type="Resource" id="Resource_wp_sec"]
+script = ExtResource("3_wp")
+key = &"cruiser_aa"
+display_name = "AA Gun"
+damage_table = SubResource("Resource_dt_sec")
+uses_ammo = false
+
+[resource]
+script = ExtResource("4_ut")
+key = &"cruiser"
+display_name = "Cruiser"
+cost = 18000
+movement = 6
+movement_class = ExtResource("1_mc")
+vision = 3
+max_fuel = 99
+fuel_per_turn = 1
+crashes_without_fuel = true
+primary_weapon = SubResource("Resource_wp_pri")
+secondary_weapon = SubResource("Resource_wp_sec")
+max_ammo = 9
+built_at = Array[StringName]([&"port"])

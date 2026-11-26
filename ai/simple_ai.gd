@@ -160,18 +160,21 @@ func _score(view: StateView, action: Action) -> float:
 
 
 func _score_unit_action(view: StateView, ua: UnitAction) -> float:
+	var score: float = 0.0
 	match ua.verb:
 		UnitAction.Verb.ATTACK:
-			return _score_attack(view, ua)
+			score = _score_attack(view, ua)
 		UnitAction.Verb.CAPTURE:
-			return _score_capture(view, ua)
+			score = _score_capture(view, ua)
+		UnitAction.Verb.LAUNCH:
+			score = _score_launch(view, ua)
 		UnitAction.Verb.SUPPLY:
-			return _score_supply(view, ua)
+			score = _score_supply(view, ua)
 		UnitAction.Verb.JOIN:
-			return _score_join(view, ua)
+			score = _score_join(view, ua)
 		UnitAction.Verb.WAIT:
-			return _score_advance(view, ua)
-	return 0.0
+			score = _score_advance(view, ua)
+	return score
 
 
 func _score_attack(view: StateView, ua: UnitAction) -> float:
@@ -206,13 +209,36 @@ func _score_capture(view: StateView, ua: UnitAction) -> float:
 	var map := view.map()
 	var terrain: TerrainType = view.ruleset().terrain_types[map.terrain_at(dest)]
 	var enemy_hq: bool = terrain.is_hq and map.property_owner[map.idx(dest)] != MapState.NO_OWNER
+	var comms_bonus: float = 250.0 if terrain.attack_bonus_percent > 0 else 0.0
 	if after >= view.ruleset().capture_threshold:
 		if enemy_hq:
 			return HQ_CAPTURE_SCORE
-		return CAPTURE_COMPLETE_SCORE * profile.capture_weight
+		return (CAPTURE_COMPLETE_SCORE + comms_bonus) * profile.capture_weight
 	if enemy_hq:
 		return HQ_CAPTURE_STEP_SCORE * profile.capture_weight
-	return CAPTURE_STEP_SCORE * profile.capture_weight
+	return (CAPTURE_STEP_SCORE + comms_bonus * 0.5) * profile.capture_weight
+
+
+## Scores a missile silo launch by net funds-worth of non-lethal splash
+## damage across the 3x3 diamond (enemy damage minus friendly-fire).
+func _score_launch(view: StateView, ua: UnitAction) -> float:
+	var launcher := view.unit(ua.unit_id)
+	var net: float = 0.0
+	var ruleset := view.ruleset()
+	for u: UnitState in _get_visible_units(view):
+		if Grid.manhattan(ua.target_coord, u.coord) > Silo.SILO_RADIUS:
+			continue
+		var dealt: int = u.hp - maxi(u.hp - Silo.SILO_DAMAGE, 1)
+		if dealt <= 0:
+			continue
+		var worth: float = dealt / 100.0 * ruleset.unit_types[u.type_id].cost
+		if u.team == launcher.team:
+			net -= worth * 1.4
+		else:
+			net += worth * profile.aggression
+	if net <= 0.0:
+		return 0.0
+	return net + 400.0
 
 
 func _score_supply(view: StateView, ua: UnitAction) -> float:
@@ -391,6 +417,14 @@ func _score_build(view: StateView, action: BuildAction) -> float:
 	if not armed and not candidate.capture_capable:
 		return 0.0
 	var score: float = BUILD_BASE_SCORE + candidate.cost * 0.01 * profile.expensive_unit_bias
+	if candidate.movement_class != null and candidate.movement_class.key == &"ship":
+		var ship_count: int = 0
+		for mine: UnitState in _get_my_units(view):
+			var mc := view.ruleset().unit_types[mine.type_id].movement_class
+			if mc != null and mc.key == &"ship":
+				ship_count += 1
+		if ship_count >= 2:
+			score -= 220.0
 	if candidate.capture_capable and _short_of_capturers(view):
 		score += BUILD_CAPTURER_SCORE - candidate.cost * 0.02
 	if _answers_an_open_threat(view, candidate):

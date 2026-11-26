@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="TerrainType" format=3]
+
+[ext_resource type="Script" path="res://data/schema/movement_class.gd" id="1_mc"]
+[ext_resource type="Script" path="res://data/schema/terrain_type.gd" id="2_tt"]
+
+[resource]
+script = ExtResource("2_tt")
+key = &"sea"
+display_name = "Sea"
+move_costs = Dictionary[StringName, PackedInt32Array]({
+&"air": PackedInt32Array(1, 1, 2),
+&"boots": PackedInt32Array(-1, -1, -1),
+&"foot": PackedInt32Array(-1, -1, -1),
+&"lander": PackedInt32Array(1, 1, 2),
+&"ship": PackedInt32Array(1, 1, 2),
+&"tires": PackedInt32Array(-1, -1, -1),
+&"treads": PackedInt32Array(-1, -1, -1)
+})

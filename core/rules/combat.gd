@@ -24,6 +24,10 @@ class DamagePreview:
 	var counter_damage: int = 0
 	var can_counter: bool = false
 	var has_ammo: bool = false  # false = no usable weapon at all
+	var attacker_mod: int = 100
+	var defender_mod: int = 100
+	var defender_stars: int = 0
+	var kills_defender: bool = false
 
 
 ## Luckless damage forecast for the UI and AI, counterattack included.
@@ -45,16 +49,20 @@ static func preview(
 		return p
 	p.has_ammo = true
 	var base: int = weapon.damage_table.base_damage[defender_type.key]
+	p.attacker_mod = attack_mod(state, attacker)
+	p.defender_mod = defense_mod(state, defender)
+	p.defender_stars = _stars_for(state, defender)
 	p.damage = _scaled(
 		base,
 		attacker.display_hp(),
 		defender.display_hp(),
-		_stars_for(state, defender),
-		attack_mod(state, attacker),
-		defense_mod(state, defender)
+		p.defender_stars,
+		p.attacker_mod,
+		p.defender_mod
 	)
 	p.damage_display = p.damage / 10.0
 	var hp_after: int = maxi(defender.hp - p.damage, 0)
+	p.kills_defender = hp_after == 0
 	if hp_after == 0 or not _fires_at_range_one(defender_type):
 		return p
 	if Grid.manhattan(origin, defender.coord) != 1:
@@ -71,7 +79,7 @@ static func preview(
 		attacker.display_hp(),
 		_stars_for(state, attacker, origin),
 		attack_mod(state, defender),
-		defense_mod(state, attacker)
+		defense_mod(state, attacker, origin)
 	)
 	return p
 
@@ -167,6 +175,20 @@ static func _charge(state: GameState, team: int, amount: int, events: Array[Game
 	events.append(Events.PowerCharged.new(team, delta, new_total))
 
 
+## Effective max attack range for `unit`, including CO indirect-range bonuses.
+static func attack_range_max_for(state: GameState, unit: UnitState) -> int:
+	var unit_type: UnitType = state.ruleset.unit_types[unit.type_id]
+	var max_r: int = unit_type.attack_range_max
+	if unit_type.attack_range_min >= 2:
+		var co := co_of(state, unit.team)
+		if co != null:
+			max_r += co.passive_indirect_range_bonus
+			var active := active_power(state, unit.team)
+			if active != null:
+				max_r += active.indirect_range_bonus
+	return max_r
+
+
 ## Tiles this unit could shoot standing on `from`: the range annulus,
 ## bounds-filtered. Empty when the unit cannot move and fire and `from`
 ## is not its current tile. Occupancy is not consulted — target legality
@@ -177,7 +199,8 @@ static func attackable_tiles(state: GameState, unit_id: int, from: Vector2i) -> 
 	if from != unit.coord and not unit_type.can_move_and_fire:
 		return []
 	var out: Array[Vector2i] = []
-	var ring := Grid.coords_in_range(from, unit_type.attack_range_min, unit_type.attack_range_max)
+	var max_r: int = attack_range_max_for(state, unit)
+	var ring := Grid.coords_in_range(from, unit_type.attack_range_min, max_r)
 	for c: Vector2i in ring:
 		if state.map.in_bounds(c):
 			out.append(c)
@@ -223,29 +246,51 @@ static func _scaled(
 	return int(floor(offense * mitigation))
 
 
-## Attack modifier for `unit`'s owner: 100 plus CO passives and any
-## active power bonus.
+## Attack modifier for `unit`'s owner: 100 plus CO passives, role bonuses,
+## active power bonus, and owned Comms Towers.
 static func attack_mod(state: GameState, unit: UnitState) -> int:
 	var mod: int = 100
+	var unit_type: UnitType = state.ruleset.unit_types[unit.type_id]
 	var co := co_of(state, unit.team)
 	if co != null:
 		mod += co.passive_attack_bonus
+		if unit_type.attack_range_min >= 2:
+			mod += co.passive_indirect_attack_bonus
+		else:
+			mod += co.passive_direct_attack_bonus
+		if is_airborne(state, unit):
+			mod += co.passive_air_attack_bonus
 		var active := active_power(state, unit.team)
 		if active != null:
 			mod += active.attack_bonus
-	return mod
+	mod += comms_tower_bonus(state, unit.team)
+	return maxi(mod, 10)
 
 
-## Defense modifier for `unit`'s owner, same shape as attack_mod.
-static func defense_mod(state: GameState, unit: UnitState) -> int:
+## Total attack percentage bonus from Comms Towers (or any terrain with
+## attack_bonus_percent) owned by `team`.
+static func comms_tower_bonus(state: GameState, team: int) -> int:
+	var bonus: int = 0
+	for i: int in range(state.map.property_owner.size()):
+		if state.map.property_owner[i] == team:
+			bonus += state.ruleset.terrain_types[state.map.terrain[i]].attack_bonus_percent
+	return bonus
+
+
+## Defense modifier for `unit`'s owner, including per-star terrain cover bonuses.
+static func defense_mod(state: GameState, unit: UnitState, at: Vector2i = Vector2i(-1, -1)) -> int:
 	var mod: int = 100
 	var co := co_of(state, unit.team)
 	if co != null:
 		mod += co.passive_defense_bonus
+		var per_star: int = co.passive_terrain_defense_bonus
 		var active := active_power(state, unit.team)
 		if active != null:
 			mod += active.defense_bonus
-	return mod
+			per_star += active.terrain_defense_bonus
+		if per_star != 0:
+			mod += per_star * _stars_for(state, unit, at)
+	return maxi(mod, 10)
 
 
 ## The luck ceiling for `unit`'s owner: ruleset base plus CO bonuses.

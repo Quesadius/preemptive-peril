@@ -28,17 +28,30 @@ var body_shape: BodyShape = BodyShape.RECT
 var art_tile: Vector2i = ArtSet.NONE
 ## Short label over borrowed sprites ("" when the sprite is its own).
 var tag: String = ""
+## On-map status badges synced from GameState by UnitLayer.
+var is_capturing: bool = false
+var cargo_count: int = 0
+var low_fuel: bool = false
+var low_ammo: bool = false
+var power_active: bool = false
 
 var _art_sprite: Sprite2D
 var _art_texture: AtlasTexture
 
 
 ## Refreshes this view from a unit's current display data.
-func present(unit: UnitState, unit_type: UnitType) -> void:
+func present(
+	unit: UnitState, unit_type: UnitType, p_capturing: bool = false, p_power_active: bool = false
+) -> void:
 	unit_id = unit.id
 	team = unit.team
 	display_hp = unit.display_hp()
 	exhausted = unit.has_acted
+	is_capturing = p_capturing
+	cargo_count = unit.cargo.size()
+	low_fuel = unit_type.max_fuel > 0 and unit.fuel * 4 <= unit_type.max_fuel
+	low_ammo = unit_type.max_ammo > 0 and unit.ammo * 4 <= unit_type.max_ammo
+	power_active = p_power_active
 	type_label = _glyph_for(unit_type)
 	body_shape = _shape_for(unit_type)
 	position = MapRenderer.world_pos(unit.coord)
@@ -138,14 +151,49 @@ func _draw() -> void:
 
 
 ## The sheet's HP badge (drawn over the whole tile; the badge sits in its
-## bottom-right corner) and the borrowed-sprite tag, top-left.
+## bottom-right corner), plus capture flag, cargo, low-fuel/ammo, and active
+## CO power aura badges.
 func _draw_art_badges() -> void:
 	var half := MapRenderer.TILE_SIZE / 2.0
+	if power_active and not exhausted:
+		var aura := MapRenderer.team_color(team).lightened(0.35)
+		aura.a = 0.65
+		draw_rect(
+			Rect2(-half + 1.0, -half + 1.0, half * 2.0 - 2.0, half * 2.0 - 2.0), aura, false, 1.5
+		)
 	if display_hp < 10:
 		var digit := art.digit_tile(display_hp)
 		if digit != ArtSet.NONE:
 			var tile_rect := Rect2(-half, -half, half * 2.0, half * 2.0)
 			draw_texture_rect_region(art.sheet, tile_rect, art.region(digit))
+	if is_capturing:
+		var flag := art.flag_tile(team)
+		if flag != ArtSet.NONE:
+			var flag_rect := Rect2(-half + 1.0, -half + 1.0, 12.0, 12.0)
+			draw_texture_rect_region(art.sheet, flag_rect, art.region(flag))
+	if cargo_count > 0:
+		var badge_rect := Rect2(half - 11.0, -half + 1.0, 10.0, 10.0)
+		draw_rect(badge_rect, Color(0.12, 0.45, 0.85, 0.92))
+		draw_rect(badge_rect, Color(1.0, 1.0, 1.0, 0.85), false, 1.0)
+		var font := ThemeDB.fallback_font
+		var txt := "L" if cargo_count == 1 else str(cargo_count)
+		draw_string(
+			font,
+			Vector2(half - 9.0, -half + 9.0),
+			txt,
+			HORIZONTAL_ALIGNMENT_LEFT,
+			-1,
+			8,
+			Color.WHITE
+		)
+	if low_fuel and art.fuel_icon_tile != ArtSet.NONE:
+		var fuel_rect := Rect2(-half + 1.0, half - 12.0, 11.0, 11.0)
+		draw_texture_rect_region(art.sheet, fuel_rect, art.region(art.fuel_icon_tile))
+	elif low_ammo:
+		draw_circle(Vector2(-half + 5.0, half - 5.0), 3.5, Color(1.0, 0.72, 0.12, 0.95))
+		draw_arc(
+			Vector2(-half + 5.0, half - 5.0), 3.5, 0.0, TAU, 12, Color(0.0, 0.0, 0.0, 0.85), 1.0
+		)
 	if not tag.is_empty():
 		var font := ThemeDB.fallback_font
 		var at := Vector2(-half + 1.0, -half + 8.0)

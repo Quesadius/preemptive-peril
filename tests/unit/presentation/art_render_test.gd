@@ -48,15 +48,13 @@ func test_ground_details_and_fallback() -> void:
 	assert_that(detail.get_cell_atlas_coords(Vector2i(2, 0))).is_equal(Vector2i(5, 0))
 	# Buildings in their owners' colors: neutral factory, blue HQ, red city.
 	assert_that(detail.get_cell_atlas_coords(Vector2i(0, 2))).is_equal(Vector2i(11, 0))
-	assert_that(detail.get_cell_atlas_coords(Vector2i(1, 2))).is_equal(Vector2i(14, 2))
+	assert_that(detail.get_cell_atlas_coords(Vector2i(1, 2))).is_equal(Vector2i(10, 2))
 	assert_that(detail.get_cell_atlas_coords(Vector2i(2, 2))).is_equal(Vector2i(8, 3))
 	# Ownership shows on the buildings, so the tint layer stays empty.
 	assert_array(renderer.property_layer.get_used_cells()).is_empty()
-	# Sea has no art in this set: the flat-color fallback, nothing on top.
-	assert_int(ground.get_cell_source_id(Vector2i(3, 2))).is_equal(MapRenderer.SOURCE_ID)
-	assert_that(ground.get_cell_atlas_coords(Vector2i(3, 2))).is_equal(
-		Vector2i(BattleFixture.SEA, 0)
-	)
+	# Sea now uses the dedicated HD ocean base tile, nothing on top.
+	assert_int(ground.get_cell_source_id(Vector2i(3, 2))).is_equal(MapRenderer.ART_SOURCE)
+	assert_that(ground.get_cell_atlas_coords(Vector2i(3, 2))).is_equal(Vector2i(1, 2))
 	assert_int(detail.get_cell_source_id(Vector2i(3, 2))).is_equal(-1)
 
 

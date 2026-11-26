@@ -9,6 +9,7 @@ const MOVE_COLOR := Color(0.25, 0.5, 1.0, 0.3)
 const TARGET_COLOR := Color(1.0, 0.2, 0.15, 0.4)
 const PATH_COLOR := Color(1.0, 0.95, 0.3, 0.9)
 const DANGER_COLOR := Color(1.0, 0.32, 0.05, 0.22)
+const SILO_COLOR := Color(1.0, 0.45, 0.05, 0.45)
 
 ## Draws the traced path with the sheet's arrow pieces when set; a
 ## yellow polyline if not.
@@ -25,6 +26,7 @@ var move_tiles: Array[Vector2i] = []
 var target_tiles: Array[Vector2i] = []
 var path_tiles: Array[Vector2i] = []
 var danger_tiles: Array[Vector2i] = []
+var silo_tiles: Array[Vector2i] = []
 
 
 ## Shows the blue movement range.
@@ -53,11 +55,18 @@ func show_danger(tiles: Array[Vector2i]) -> void:
 	queue_redraw()
 
 
+## Shows the orange blast-radius preview for a Missile Silo launch.
+func show_silo_blast(tiles: Array[Vector2i]) -> void:
+	silo_tiles = tiles
+	queue_redraw()
+
+
 ## Clears the transient overlays (danger persists; see show_danger).
 func clear() -> void:
 	move_tiles = []
 	target_tiles = []
 	path_tiles = []
+	silo_tiles = []
 	queue_redraw()
 
 
@@ -68,6 +77,8 @@ func _draw() -> void:
 		draw_rect(_tile_rect(c), MOVE_COLOR)
 	for c: Vector2i in target_tiles:
 		draw_rect(_tile_rect(c), TARGET_COLOR)
+	for c: Vector2i in silo_tiles:
+		draw_rect(_tile_rect(c), SILO_COLOR)
 	if path_tiles.size() >= 2 and art_set != null and art_set.sheet != null:
 		for i: int in range(path_tiles.size()):
 			var piece := art_set.arrow_piece(path_tiles, i)

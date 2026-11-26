@@ -20,6 +20,18 @@ extends RefCounted
 ## arrives with the fog milestone and lives in Rules.apply(), not here.
 
 
+## Effective movement points for `unit`, including CO passive/power bonuses.
+static func points_for(state: GameState, unit: UnitState) -> int:
+	var points: int = state.ruleset.unit_types[unit.type_id].movement
+	var co := Combat.co_of(state, unit.team)
+	if co != null:
+		points += co.passive_movement_bonus
+		var active := Combat.active_power(state, unit.team)
+		if active != null:
+			points += active.movement_bonus
+	return maxi(points, 1)
+
+
 ## Bounded Dijkstra from the unit's tile. Returns coord -> remaining
 ## movement points (movement minus the cheapest cost among routes that
 ## also fit the fuel's step limit). The unit's own tile is included with
@@ -34,7 +46,7 @@ static func reachable(
 	viewer_mask: PackedByteArray = PackedByteArray()
 ) -> Dictionary[Vector2i, int]:
 	var unit: UnitState = state.units[unit_id]
-	var points: int = state.ruleset.unit_types[unit.type_id].movement
+	var points: int = points_for(state, unit)
 	var effective_viewer: int = unit.team if viewer_team < 0 else viewer_team
 	var mask: PackedByteArray = (
 		viewer_mask if not viewer_mask.is_empty() else Fog.mask_for(state, effective_viewer)
@@ -69,9 +81,15 @@ static func enter_cost(state: GameState, unit: UnitState, coord: Vector2i) -> in
 	if not terrain.move_costs.has(class_key):
 		return -1
 	var costs: PackedInt32Array = terrain.move_costs[class_key]
-	if state.weather < 0 or state.weather >= costs.size():
+	var weather_idx: int = state.weather
+	var co := Combat.co_of(state, unit.team)
+	if co != null:
+		var active := Combat.active_power(state, unit.team)
+		if co.ignores_weather or (active != null and active.ignores_weather):
+			weather_idx = GameState.Weather.CLEAR
+	if weather_idx < 0 or weather_idx >= costs.size():
 		return -1
-	var cost: int = costs[state.weather]
+	var cost: int = costs[weather_idx]
 	return cost if cost >= 1 else -1
 
 
@@ -87,7 +105,7 @@ static func path_to(
 	viewer_mask: PackedByteArray = PackedByteArray()
 ) -> Array[Vector2i]:
 	var unit: UnitState = state.units[unit_id]
-	var points: int = state.ruleset.unit_types[unit.type_id].movement
+	var points: int = points_for(state, unit)
 	var effective_viewer: int = unit.team if viewer_team < 0 else viewer_team
 	var mask: PackedByteArray = (
 		viewer_mask if not viewer_mask.is_empty() else Fog.mask_for(state, effective_viewer)
@@ -117,7 +135,7 @@ static func all_paths(
 	viewer_mask: PackedByteArray = PackedByteArray()
 ) -> Dictionary[Vector2i, Array]:
 	var unit: UnitState = state.units[unit_id]
-	var points: int = state.ruleset.unit_types[unit.type_id].movement
+	var points: int = points_for(state, unit)
 	var effective_viewer: int = unit.team if viewer_team < 0 else viewer_team
 	var mask: PackedByteArray = (
 		viewer_mask if not viewer_mask.is_empty() else Fog.mask_for(state, effective_viewer)
@@ -146,7 +164,7 @@ static func validate_path(state: GameState, unit_id: int, path: Array[Vector2i])
 	var unit: UnitState = state.units[unit_id]
 	if path.is_empty() or path[0] != unit.coord:
 		return false
-	var points: int = state.ruleset.unit_types[unit.type_id].movement
+	var points: int = points_for(state, unit)
 	# Every step costs at least 1 point and 1 fuel, so an over-long path
 	# fails here without walking it (paths arrive from save files too).
 	if path.size() - 1 > mini(points, unit.fuel):

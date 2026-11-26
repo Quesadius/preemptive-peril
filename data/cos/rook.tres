@@ -22,6 +22,7 @@ heal_hp = 10
 script = ExtResource("2_lbteg")
 key = &"rook"
 display_name = "Rook"
+description = "Fortress defender: +10% defense at all times. Powers fortify every unit."
 passive_defense_bonus = 10
 power = SubResource("Resource_voc4q")
 super_power = SubResource("Resource_hbpi7")

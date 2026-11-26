@@ -286,3 +286,25 @@ class GameEnded:
 	func _init(p_winning_team: int, p_reason: StringName) -> void:
 		winning_team = p_winning_team
 		reason = p_reason
+
+
+class SiloLaunched:
+	extends GameEvent
+	var unit_id: int
+	var silo_coord: Vector2i
+	var target_coord: Vector2i
+	var affected_unit_ids: Array[int] = []
+	var damages: Array[int] = []
+
+	func _init(
+		p_unit_id: int,
+		p_silo_coord: Vector2i,
+		p_target_coord: Vector2i,
+		p_affected_ids: Array[int],
+		p_damages: Array[int]
+	) -> void:
+		unit_id = p_unit_id
+		silo_coord = p_silo_coord
+		target_coord = p_target_coord
+		affected_unit_ids = p_affected_ids
+		damages = p_damages

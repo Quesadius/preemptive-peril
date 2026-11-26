@@ -4,7 +4,7 @@
 
 A turn-based grid tactics game built in Godot 4 with GDScript. Command an army of infantry, tanks, artillery, transports and aircraft, capture cities for income, build reinforcements at factories and airports, and take the enemy's headquarters before they take yours.
 
-**Status:** playable against the computer on three maps and three difficulty levels, with optional fog of war and weather, autosave, pixel art from Kenney's Tiny Battle pack, and synthesized sound effects. There is no music yet.
+**Status:** playable against the computer or in 2-player hotseat across **9 handcrafted maps**, a **seeded random map generator**, **6 campaign missions**, and **4 tactical puzzles**, with **7 distinct commanders**, naval warfare (Ports, Landers, Cruisers, Battleships), Missile Silos, Comms Towers, Rivers & Bridges, Fog of War, weather, S/A/B/C match rankings, HD art, synthesized sound effects, and synthesized tactical music.
 
 ![The Crossroads map at the start of a match: red's army and base on the left, blue's on the right, neutral cities in between](docs/screenshots/crossroads.png)
 
@@ -35,9 +35,33 @@ The game opens on the new-match screen. Pick a map, switch **fog of war**, **ran
 
 | Map | Size | Notes |
 |---|---|---|
+| Archipelago | 14×10 | Coastal Ports, Cruisers, bridges, and a central Comms Tower island |
 | Crossroads | 12×10 | The original: two bases either side of a road junction |
 | Gauntlet | 8×12 | Tall and narrow, sized to fit a phone held upright |
-| Highlands | 18×12 | The big one, with an airport in each base and two more to fight over |
+| Highlands | 18×12 | Wide highway map with an airport in each base and two more to fight over |
+| Iron Valley | 14×10 | Central mountain spine with flanking passes, Airports, and Attack Choppers |
+| Missile Ridge | 14×10 | Race to seize two central Missile Silos and Comms Towers |
+| Pocket Blitz | 9×8 | Compact 5-minute skirmish with fast armored clashes |
+| Twin Bridges | 14×10 | River divide with two bridge choke points and artillery hills |
+| Whispering Woods | 12×10 | Forest ambush lanes built for Recons and Fog of War |
+
+You can also switch tabs on the setup screen to play **6 Campaign Missions**, **4 Tactical Puzzles** (1-turn challenges), or generate a seeded **Random Map** (Open Plains, River Crossing, Mountain Pass, or Coastal Sea).
+
+![Archipelago: red and blue bases with Ports, Cruisers, bridges, and a contested central Comms Tower island](docs/screenshots/archipelago.png)
+
+### Commanders (COs)
+
+Choose your commander and opponent commander on the setup screen:
+
+| Commander | Specialty | Power / Super Power |
+|---|---|---|
+| Vale | Balanced all-rounder | Rally (+10% ATK/DEF) / Grand Rally (+20% ATK/DEF, +2 HP heal) |
+| Rook | +10% passive defense | Bulwark (+30% DEF) / Citadel (+40% DEF, +1 HP heal) |
+| Blitz | +15% direct ATK, −10% indirects | Overdrive (+1 move) / Lightning Strike (+2 move & **refreshes acted units**) |
+| Nova | +25% indirect ATK, −10% direct | Barrage (+1 indirect range) / Firestorm (+2 indirect range, +35% ATK) |
+| Aero | +20% air ATK, half air fuel burn | Tailwind (+1 move) / Air Superiority (+2 move, +30% ATK, +1 HP heal) |
+| Midas | Units cost 15% less, −10% ATK | War Chest (+50% income burst) / Golden Surge (+100% income burst) |
+| Shade | +1 fog vision, ignores weather, +5% cover/star | Ghost Walk (+1 move, +2 vision) / Shadow Ops (+3 vision, +25% ATK, +10% luck) |
 
 ![Highlands: red's base top-left, blue's bottom-right, a winding road, and two unclaimed airports in the middle](docs/screenshots/highlands.png)
 
@@ -68,6 +92,8 @@ You command red (CO Vale). The computer commands blue (CO Rook) and plays its tu
 | Arrow keys | Move the cursor; while choosing a target, cycle between targets |
 | Enter / Space | Confirm |
 | Esc | Back out one step |
+| Tab | Jump to next idle unit |
+| Z | Undo last non-destructive wait move |
 | D | Show or hide the enemy danger map |
 | + / − or mouse wheel | Zoom |
 
@@ -91,11 +117,11 @@ What confirming (**Enter** or a click) does depends on what is under the cursor:
 
 **Economy and capture.** Each property you own pays 1,000 funds at the start of your turn, and your units standing on your properties are repaired and resupplied. Infantry and mechs capture cities, factories and HQs. A property needs 20 capture points, and each turn adds the capturing unit's displayed HP, so healthy units capture faster.
 
-**Aircraft.** Airports build Copters and Bombers. Flying units cross any terrain at full speed and get no defence from it, forests can't hide them, and they burn fuel every turn — land on an airport you own to refuel, because an aircraft that starts its turn with an empty tank crashes. Copters hunt vehicles and infantry; Bombers flatten anything on the ground but can't touch other aircraft. Anti-Air is the answer to both.
+**Aircraft & Naval.** Airports build Attack Choppers and Bombers; Ports build Landers (carry 2 ground units across sea), Cruisers (anti-air and anti-ship escorts), and Battleships (long-range 2–6 indirect naval artillery). Flying and naval units burn fuel every turn and refuel at owned Airports/Ports.
 
-**Fog and weather.** Under fog of war you see only what your units and properties can see; forests hide ground units until you're next to them, and moving into an unseen enemy springs an ambush that ends the move. Random weather brings spells of rain or snow that slow movement.
+**Comms Towers & Missile Silos.** Each Comms Tower you own adds +10% global attack to your entire army. Moving an Infantry or Mech onto an unspent Missile Silo lets you **Launch** a one-time tactical warhead onto any 3×3 diamond on the board, dealing 3 HP non-lethal splash damage to every unit caught in the blast.
 
-**Winning.** Each side has an HQ, the spired building in its home base. Capture the enemy HQ and you win on the spot. A player is also eliminated when they have no units left and nowhere to build more. When the match ends, a Victory or Defeat message appears; press **Enter** or click to go back to the new-match screen.
+**Winning.** Each side has an HQ (the grand command building in its home base). Capture the enemy HQ or eliminate all enemy units and production to win. Victories are graded **S / A / B / C** across Speed, Power, and Technique and saved per map, mission, and puzzle.
 
 ## Development
 
