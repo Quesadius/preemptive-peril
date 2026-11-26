@@ -52,9 +52,11 @@ func test_ground_details_and_fallback() -> void:
 	assert_that(detail.get_cell_atlas_coords(Vector2i(2, 2))).is_equal(Vector2i(8, 3))
 	# Ownership shows on the buildings, so the tint layer stays empty.
 	assert_array(renderer.property_layer.get_used_cells()).is_empty()
-	# Sea now uses the dedicated HD ocean base tile, nothing on top.
+	# Sea auto-tiles its shoreline edges: (3,2) has land N+W -> NW corner (0,1),
+	# and (4,2) has land N only (off-board E counts as sea) -> N edge (1,1).
 	assert_int(ground.get_cell_source_id(Vector2i(3, 2))).is_equal(MapRenderer.ART_SOURCE)
-	assert_that(ground.get_cell_atlas_coords(Vector2i(3, 2))).is_equal(Vector2i(1, 2))
+	assert_that(ground.get_cell_atlas_coords(Vector2i(3, 2))).is_equal(Vector2i(0, 1))
+	assert_that(ground.get_cell_atlas_coords(Vector2i(4, 2))).is_equal(Vector2i(1, 1))
 	assert_int(detail.get_cell_source_id(Vector2i(3, 2))).is_equal(-1)
 
 

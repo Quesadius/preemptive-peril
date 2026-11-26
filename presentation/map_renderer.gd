@@ -109,7 +109,8 @@ func update_tile(state: GameState, c: Vector2i) -> void:
 			terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
 			detail_layer.erase_cell(c)
 			return
-		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(terrain.key, c))
+		var wmask: int = water_mask(state, c) if _is_water_key(terrain.key) else 15
+		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(terrain.key, c, wmask))
 		var detail := _detail_for(state, c, terrain.key, owner_team)
 		if detail != ArtSet.NONE:
 			detail_layer.set_cell(c, ART_SOURCE, detail)
@@ -147,6 +148,29 @@ func _is_road(state: GameState, c: Vector2i) -> bool:
 		return false
 	var terrain: TerrainType = state.ruleset.terrain_types[state.map.terrain_at(c)]
 	return terrain.key == art_set.road_terrain or terrain.key == &"bridge"
+
+
+## Water-neighbor mask for `c` (ArtSet N=1, E=2, S=4, W=8). Sea, rivers,
+## bridges, and off-board edges count as water so oceans and rivers run
+## cleanly off the board while drawing shoreline banks against land tiles.
+func water_mask(state: GameState, c: Vector2i) -> int:
+	var mask: int = 0
+	for n: Vector2i in Grid.neighbors(c):
+		var bit := ArtSet.dir_bit(n - c)
+		if not state.map.in_bounds(n):
+			mask |= bit
+		elif _is_water_or_bridge(state, n):
+			mask |= bit
+	return mask
+
+
+func _is_water_key(key: StringName) -> bool:
+	return key == &"sea" or key == &"river" or key == &"bridge"
+
+
+func _is_water_or_bridge(state: GameState, c: Vector2i) -> bool:
+	var key: StringName = state.ruleset.terrain_types[state.map.terrain_at(c)].key
+	return key == &"sea" or key == &"river" or key == &"bridge"
 
 
 func _detail_for(state: GameState, c: Vector2i, key: StringName, owner_team: int) -> Vector2i:
@@ -192,13 +216,16 @@ func _render_art(state: GameState) -> void:
 		detail_layer.tile_set = art_tiles
 		property_layer.tile_set = art_tiles
 	var s := art_set.draw_scale()
-	var filter := (
-		CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		if art_set.tile_px > TILE_SIZE
-		else CanvasItem.TEXTURE_FILTER_NEAREST
+	var hd: bool = art_set.tile_px > TILE_SIZE
+	# Full-bleed packed ground/water tiles have 0px atlas padding: use LINEAR
+	# without mipmaps on terrain_layer so mipmap levels never bleed water across
+	# adjacent grass tile borders.
+	terrain_layer.texture_filter = (
+		CanvasItem.TEXTURE_FILTER_LINEAR if hd else CanvasItem.TEXTURE_FILTER_NEAREST
 	)
-	terrain_layer.texture_filter = filter
-	detail_layer.texture_filter = filter
+	detail_layer.texture_filter = (
+		CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if hd else CanvasItem.TEXTURE_FILTER_NEAREST
+	)
 	terrain_layer.scale = Vector2(s, s)
 	detail_layer.scale = Vector2(s, s)
 	terrain_layer.clear()
@@ -211,7 +238,8 @@ func _render_art(state: GameState) -> void:
 		if not art_set.draws_on_ground(terrain.key):
 			terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
 			continue
-		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(terrain.key, c))
+		var wmask: int = water_mask(state, c) if _is_water_key(terrain.key) else 15
+		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(terrain.key, c, wmask))
 		var detail := _detail_for(state, c, terrain.key, state.map.property_owner[i])
 		if detail != ArtSet.NONE:
 			detail_layer.set_cell(c, ART_SOURCE, detail)

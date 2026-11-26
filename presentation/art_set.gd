@@ -30,6 +30,9 @@ const NONE := Vector2i(-1, -1)
 @export var terrain_tiles: Dictionary[StringName, Vector2i] = {}
 ## Terrains that draw their own base tile instead of grass (e.g. sea, river).
 @export var base_tiles: Dictionary[StringName, Vector2i] = {}
+## 16-entry water shoreline lookup indexed by water-neighbor mask
+## (N=1, E=2, S=4, W=8; bit=1 means neighbor is water/bridge/off-board).
+@export var water_tiles: Array[Vector2i] = []
 ## Bridge detail tiles: [horizontal, vertical] drawn over water/ground.
 @export var bridge_tiles: Array[Vector2i] = []
 ## Team flag column (same row order as buildings) for capture indicators.
@@ -92,9 +95,12 @@ func draws_on_ground(key: StringName) -> bool:
 	)
 
 
-## The base tile for `key` at `coord`: its dedicated base tile if mapped
-## (e.g. sea, river), otherwise the deterministic grass ground variant.
-func base_tile_for(key: StringName, coord: Vector2i) -> Vector2i:
+## The base tile for `key` at `coord`: auto-tiled shoreline for water
+## terrains when `water_tiles` is populated, dedicated base tile if mapped,
+## otherwise the deterministic grass ground variant.
+func base_tile_for(key: StringName, coord: Vector2i, water_mask: int = 15) -> Vector2i:
+	if (key == &"sea" or key == &"river" or key == &"bridge") and water_tiles.size() == 16:
+		return water_tiles[water_mask & 15]
 	if base_tiles.has(key):
 		return base_tiles[key]
 	if key == &"bridge" and base_tiles.has(&"sea"):
