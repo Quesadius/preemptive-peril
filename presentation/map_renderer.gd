@@ -61,8 +61,7 @@ static func team_color(team: int) -> Color:
 	return TEAM_COLORS[team % TEAM_COLORS.size()]
 
 
-## Full redraw of both layers from `state`. Cheap at AW map sizes; per-
-## event retinting arrives with the capture milestone.
+## Full redraw of both layers from `state`.
 func render(state: GameState) -> void:
 	if terrain_layer == null or property_layer == null:
 		push_warning("MapRenderer: tile layers not wired; nothing to render")
@@ -85,6 +84,39 @@ func render(state: GameState) -> void:
 		var owner_team: int = state.map.property_owner[i]
 		if owner_team != MapState.NO_OWNER:
 			property_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_count + owner_team, 0))
+
+
+## Redraws a single tile (used when a property changes ownership without
+## clearing and rebuilding the entire map).
+func update_tile(state: GameState, c: Vector2i) -> void:
+	if terrain_layer == null or property_layer == null or not state.map.in_bounds(c):
+		return
+	if terrain_layer.tile_set == null:
+		render(state)
+		return
+	var idx: int = state.map.idx(c)
+	var owner_team: int = state.map.property_owner[idx]
+	var terrain_id: int = state.map.terrain[idx]
+	if _art_ready():
+		var terrain: TerrainType = state.ruleset.terrain_types[terrain_id]
+		if not art_set.draws_on_ground(terrain.key):
+			terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
+			detail_layer.erase_cell(c)
+			return
+		terrain_layer.set_cell(c, ART_SOURCE, art_set.ground_tile(c))
+		var mask: int = road_mask(state, c) if terrain.key == art_set.road_terrain else 0
+		var detail := art_set.detail_tile(terrain.key, owner_team, mask)
+		if detail != ArtSet.NONE:
+			detail_layer.set_cell(c, ART_SOURCE, detail)
+		else:
+			detail_layer.erase_cell(c)
+		return
+	var terrain_count: int = state.ruleset.terrain_types.size()
+	terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
+	if owner_team != MapState.NO_OWNER:
+		property_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_count + owner_team, 0))
+	else:
+		property_layer.erase_cell(c)
 
 
 ## Road-neighbor mask for `c` (ArtSet bits). A road that would dead-end

@@ -88,6 +88,7 @@ func test_resolve_exchange_luckless() -> void:
 	assert_int(counter.attacker_id).is_equal(d.id)
 	assert_int(counter.defender_id).is_equal(a.id)
 	assert_int(counter.damage).is_equal(29)
+	assert_int(counter.ammo_used).is_equal(1)
 	assert_int(d.hp).is_equal(51)
 	assert_int(a.hp).is_equal(71)
 	assert_int(a.ammo).is_equal(2)  # cannon fired
@@ -175,3 +176,16 @@ func test_attackable_tiles() -> void:
 		Vector2i(3, 2),
 	]
 	assert_array(ring).contains_exactly(expected)
+
+
+func test_preview_from_destination_uses_destination_adjacency_and_terrain() -> void:
+	# Tank starts on road at (0,4) and previews moving to forest (1,1) to
+	# attack an enemy tank on plains (2,1). Without `from`, adjacency fails;
+	# with `from = (1,1)`, counter uses forest's 2 stars: 55 * 0.6 * 0.8 = 26.
+	var gs := BattleFixture.make_state()
+	var a := BattleFixture.spawn(gs, BattleFixture.TANK, 0, Vector2i(0, 4))
+	var d := BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(2, 1))
+	var p := Combat.preview(gs, a.id, d.id, Vector2i(1, 1))
+	assert_int(p.damage).is_equal(49)
+	assert_bool(p.can_counter).is_true()
+	assert_int(p.counter_damage).is_equal(26)

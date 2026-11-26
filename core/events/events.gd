@@ -53,11 +53,13 @@ class UnitCounterattacked:
 	var attacker_id: int
 	var defender_id: int
 	var damage: int
+	var ammo_used: int
 
-	func _init(p_attacker_id: int, p_defender_id: int, p_damage: int) -> void:
+	func _init(p_attacker_id: int, p_defender_id: int, p_damage: int, p_ammo_used: int = 0) -> void:
 		attacker_id = p_attacker_id
 		defender_id = p_defender_id
 		damage = p_damage
+		ammo_used = p_ammo_used
 
 
 class UnitDestroyed:

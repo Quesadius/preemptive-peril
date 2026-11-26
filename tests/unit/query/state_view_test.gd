@@ -57,3 +57,13 @@ func test_preview_matches_combat() -> void:
 	var direct := Combat.preview(gs, tank.id, inf.id)
 	assert_int(via_view.damage).is_equal(direct.damage)
 	assert_int(via_view.counter_damage).is_equal(direct.counter_damage)
+
+
+func test_unit_lookup_respects_fog() -> void:
+	var gs := BattleFixture.make_state()
+	gs.config.fog_enabled = true
+	var mine := BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 0))
+	var hidden := BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(4, 4))
+	var view := StateView.for_team(gs, 0)
+	assert_object(view.unit(mine.id)).is_same(mine)
+	assert_object(view.unit(hidden.id)).is_null()

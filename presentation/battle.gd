@@ -212,15 +212,15 @@ func start_match(options: MatchOptions) -> void:
 	_autosave()
 
 
-## Picks a saved match back up: replays its log on its map and carries on
-## recording into it. False (changing nothing) when the save can't be
-## replayed here — an unknown map, or rules that no longer agree with it.
-func resume(save: SaveGame) -> bool:
+## Picks a saved match back up: replays its log on its map (or reuses a
+## caller-supplied pre-replayed state) and carries on recording into it.
+## False (changing nothing) when the save can't be replayed here.
+func resume(save: SaveGame, pre_replayed: GameState = null, pre_def: MapDefinition = null) -> bool:
 	_ensure_ruleset()
-	var def := MapCatalog.find(save.map_key)
+	var def := pre_def if pre_def != null else MapCatalog.find(save.map_key)
 	if def == null:
 		return false
-	var gs := Replay.run(save, ruleset, def)
+	var gs := pre_replayed if pre_replayed != null else Replay.run(save, ruleset, def)
 	if gs == null:
 		return false
 	_begin(def, save, gs)

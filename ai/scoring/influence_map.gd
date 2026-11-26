@@ -9,9 +9,14 @@ const SPREAD := 3
 
 
 ## Influence for `team` over every tile touched by anyone's presence.
-static func compute(view: StateView, team: int) -> Dictionary[Vector2i, int]:
+static func compute(
+	view: StateView, team: int, visible_units: Array[UnitState] = []
+) -> Dictionary[Vector2i, int]:
 	var out: Dictionary[Vector2i, int] = {}
-	for unit: UnitState in view.visible_units():
+	var units: Array[UnitState] = (
+		visible_units if not visible_units.is_empty() else view.visible_units()
+	)
+	for unit: UnitState in units:
 		@warning_ignore("integer_division")
 		var weight: int = view.ruleset().unit_types[unit.type_id].cost / 100
 		var polarity: int = 1 if unit.team == team else -1

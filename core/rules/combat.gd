@@ -26,13 +26,18 @@ class DamagePreview:
 	var has_ammo: bool = false  # false = no usable weapon at all
 
 
-## Luckless damage forecast for the UI, counterattack included. Never
-## advances the RNG. When has_ammo is false the attacker has no usable
-## weapon and the other fields are meaningless.
-static func preview(state: GameState, attacker_id: int, defender_id: int) -> DamagePreview:
+## Luckless damage forecast for the UI and AI, counterattack included.
+## Never advances the RNG. When `from` is provided (non-negative coord),
+## counterattack adjacency and attacker terrain defense are evaluated as
+## if `attacker` had already moved to `from`. When has_ammo is false the
+## attacker has no usable weapon and the other fields are meaningless.
+static func preview(
+	state: GameState, attacker_id: int, defender_id: int, from: Vector2i = Vector2i(-1, -1)
+) -> DamagePreview:
 	var p := DamagePreview.new()
 	var attacker: UnitState = state.units[attacker_id]
 	var defender: UnitState = state.units[defender_id]
+	var origin: Vector2i = from if state.map.in_bounds(from) else attacker.coord
 	var attacker_type: UnitType = state.ruleset.unit_types[attacker.type_id]
 	var defender_type: UnitType = state.ruleset.unit_types[defender.type_id]
 	var weapon: WeaponProfile = usable_weapon(state, attacker, defender)
@@ -52,7 +57,7 @@ static func preview(state: GameState, attacker_id: int, defender_id: int) -> Dam
 	var hp_after: int = maxi(defender.hp - p.damage, 0)
 	if hp_after == 0 or not _fires_at_range_one(defender_type):
 		return p
-	if Grid.manhattan(attacker.coord, defender.coord) != 1:
+	if Grid.manhattan(origin, defender.coord) != 1:
 		return p
 	var counter_weapon: WeaponProfile = usable_weapon(state, defender, attacker)
 	if counter_weapon == null:
@@ -64,7 +69,7 @@ static func preview(state: GameState, attacker_id: int, defender_id: int) -> Dam
 		counter_base,
 		dhp_after,
 		attacker.display_hp(),
-		_stars_for(state, attacker),
+		_stars_for(state, attacker, origin),
 		attack_mod(state, defender),
 		defense_mod(state, attacker)
 	)
@@ -122,11 +127,15 @@ static func resolve(state: GameState, attacker_id: int, defender_id: int) -> Arr
 		defense_mod(state, attacker)
 	)
 	counter_dmg += state.rng.roll_range(0, luck_max_for(state, defender))
+	var counter_ammo: int = 0
 	if counter_weapon.uses_ammo:
 		defender.ammo -= 1
+		counter_ammo = 1
 	var counter_dealt: int = mini(counter_dmg, attacker.hp)
 	attacker.hp = maxi(attacker.hp - counter_dmg, 0)
-	events.append(Events.UnitCounterattacked.new(defender_id, attacker_id, counter_dmg))
+	events.append(
+		Events.UnitCounterattacked.new(defender_id, attacker_id, counter_dmg, counter_ammo)
+	)
 	_charge(state, attacker.team, counter_dealt, events)
 	@warning_ignore("integer_division")
 	_charge(state, defender.team, counter_dealt / 2, events)
@@ -273,12 +282,13 @@ static func active_power(state: GameState, team: int) -> COPower:
 	return null
 
 
-## Defense stars protecting `unit` where it stands: the terrain's, or
-## none for airborne units.
-static func _stars_for(state: GameState, unit: UnitState) -> int:
+## Defense stars protecting `unit` at `at` (defaults to `unit.coord`): the
+## terrain's, or none for airborne units.
+static func _stars_for(state: GameState, unit: UnitState, at: Vector2i = Vector2i(-1, -1)) -> int:
 	if is_airborne(state, unit):
 		return 0
-	return state.ruleset.terrain_types[state.map.terrain_at(unit.coord)].defense_stars
+	var coord: Vector2i = at if state.map.in_bounds(at) else unit.coord
+	return state.ruleset.terrain_types[state.map.terrain_at(coord)].defense_stars
 
 
 ## True when `unit`'s movement class flies (MovementClass.airborne).

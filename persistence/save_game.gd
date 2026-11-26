@@ -73,14 +73,28 @@ func to_json(indent: String = "\t") -> String:
 	)
 
 
-## Writes the save to `path` (compact). False if the file can't be
-## written.
+## Writes the save to `path` (compact) atomically via a temp file + rename
+## so a crash mid-write never truncates an existing autosave. False if the
+## file can't be written.
 func write_file(path: String) -> bool:
-	var file := FileAccess.open(path, FileAccess.WRITE)
+	var tmp_path := path + ".tmp"
+	var file := FileAccess.open(tmp_path, FileAccess.WRITE)
 	if file == null:
-		push_warning("SaveGame: cannot write %s" % path)
+		push_warning("SaveGame: cannot write %s" % tmp_path)
 		return false
 	file.store_string(to_json(""))
+	file.flush()
+	file.close()
+	var err := DirAccess.rename_absolute(tmp_path, path)
+	if err != OK:
+		# Fallback if rename across backends fails (e.g. virtual FS).
+		var direct := FileAccess.open(path, FileAccess.WRITE)
+		DirAccess.remove_absolute(tmp_path)
+		if direct == null:
+			push_warning("SaveGame: cannot write %s" % path)
+			return false
+		direct.store_string(to_json(""))
+		direct.close()
 	return true
 
 

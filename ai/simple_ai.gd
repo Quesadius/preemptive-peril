@@ -73,6 +73,14 @@ const BUILD_COUNTER_SCORE := 800.0
 ## Base damage from which a unit counts as an answer to an enemy type.
 const COUNTER_MIN_DAMAGE := 30
 const POWER_SCORE := 2000.0
+const SUPER_POWER_SCORE := 2500.0
+## Resupply bonus per adjacent needy ally (low fuel or low ammo).
+const SUPPLY_ALLY_SCORE := 350.0
+## Base score for consolidating two damaged twin units via JOIN.
+const JOIN_BASE_SCORE := 180.0
+## Gentle territory-control shading from InfluenceMap (higher for wounded).
+const INFLUENCE_HEALTHY_FACTOR := 0.02
+const INFLUENCE_WOUNDED_FACTOR := 0.25
 const NO_OBJECTIVE := Vector2i(-1, -1)
 
 var profile: AIProfile
@@ -82,6 +90,18 @@ var _objective_cache: Dictionary[int, Vector2i] = {}
 ## Unit ids whose objective this decision is a refuel run.
 var _refueling: Dictionary[int, bool] = {}
 var _enemy_reach_cache: Dictionary[int, Dictionary] = {}
+## Per-decision cached snapshots to avoid repeated fog/sort/army scans.
+var _visible_units_ready: bool = false
+var _visible_units: Array[UnitState] = []
+var _my_units_ready: bool = false
+var _my_units: Array[UnitState] = []
+var _fog_mask_ready: bool = false
+var _fog_mask: PackedByteArray = PackedByteArray()
+var _influence_ready: bool = false
+var _influence: Dictionary[Vector2i, int] = {}
+var _short_capturers: int = -1
+var _open_threats_ready: bool = false
+var _open_threat_keys: Array[StringName] = []
 ## Per-decision HQ watch (see _watch_hqs): HQ tiles we own and the raiders
 ## near them.
 var _hq_watch_ready: bool = false
@@ -102,6 +122,17 @@ func choose_action(view: StateView) -> Action:
 	_objective_cache = {}
 	_refueling = {}
 	_enemy_reach_cache = {}
+	_visible_units_ready = false
+	_visible_units = []
+	_my_units_ready = false
+	_my_units = []
+	_fog_mask_ready = false
+	_fog_mask = PackedByteArray()
+	_influence_ready = false
+	_influence = {}
+	_short_capturers = -1
+	_open_threats_ready = false
+	_open_threat_keys = []
 	_hq_watch_ready = false
 	_pressing = -1
 	var best: Action = EndTurnAction.new()
@@ -116,27 +147,38 @@ func choose_action(view: StateView) -> Action:
 
 func _score(view: StateView, action: Action) -> float:
 	if action is PowerAction:
-		# Powers are pure upside once charged; supers outrank normals via
-		# generation order and the same score.
+		# Supers strictly outbid normal powers when both are available.
+		var pa := action as PowerAction
+		if pa.power_level == PlayerState.PowerState.SUPER:
+			return SUPER_POWER_SCORE
 		return POWER_SCORE
 	if action is BuildAction:
 		return _score_build(view, action as BuildAction)
 	if action is UnitAction:
-		var ua := action as UnitAction
-		match ua.verb:
-			UnitAction.Verb.ATTACK:
-				return _score_attack(view, ua)
-			UnitAction.Verb.CAPTURE:
-				return _score_capture(view, ua)
-			UnitAction.Verb.WAIT:
-				return _score_advance(view, ua)
+		return _score_unit_action(view, action as UnitAction)
+	return 0.0
+
+
+func _score_unit_action(view: StateView, ua: UnitAction) -> float:
+	match ua.verb:
+		UnitAction.Verb.ATTACK:
+			return _score_attack(view, ua)
+		UnitAction.Verb.CAPTURE:
+			return _score_capture(view, ua)
+		UnitAction.Verb.SUPPLY:
+			return _score_supply(view, ua)
+		UnitAction.Verb.JOIN:
+			return _score_join(view, ua)
+		UnitAction.Verb.WAIT:
+			return _score_advance(view, ua)
 	return 0.0
 
 
 func _score_attack(view: StateView, ua: UnitAction) -> float:
 	var attacker := view.unit(ua.unit_id)
 	var defender := view.unit_at(ua.target_coord)
-	var preview := view.preview_attack(attacker.id, defender.id)
+	var dest: Vector2i = ua.path[ua.path.size() - 1]
+	var preview := view.preview_attack(attacker.id, defender.id, dest)
 	var attacker_cost: int = view.ruleset().unit_types[attacker.type_id].cost
 	var defender_cost: int = view.ruleset().unit_types[defender.type_id].cost
 	var dealt: int = mini(preview.damage, defender.hp)
@@ -144,13 +186,11 @@ func _score_attack(view: StateView, ua: UnitAction) -> float:
 	if preview.damage >= defender.hp:
 		value += defender_cost * KILL_BOUNTY
 	value += _raider_bonus(view, defender, dealt)
-	# Counter approximation: the preview reasons from the attacker's
-	# current tile; after a move the range-1 check may differ. Only
-	# charge the counter when the shot lands from adjacency.
-	var dest: Vector2i = ua.path[ua.path.size() - 1]
-	if Grid.manhattan(dest, ua.target_coord) == 1 and preview.can_counter:
+	if preview.can_counter:
 		var taken: int = mini(preview.counter_damage, attacker.hp)
 		value -= taken / 100.0 * attacker_cost * profile.caution
+	if dest != attacker.coord and _in_the_way(view, attacker, attacker.coord):
+		value += KEEP_CLEAR_SCORE
 	if _in_the_way(view, attacker, dest):
 		value -= KEEP_CLEAR_SCORE  # fire from somewhere that blocks nothing, if it's as good
 	return value + _garrison_bonus(view, attacker, dest)
@@ -173,6 +213,40 @@ func _score_capture(view: StateView, ua: UnitAction) -> float:
 	if enemy_hq:
 		return HQ_CAPTURE_STEP_SCORE * profile.capture_weight
 	return CAPTURE_STEP_SCORE * profile.capture_weight
+
+
+func _score_supply(view: StateView, ua: UnitAction) -> float:
+	var supplier := view.unit(ua.unit_id)
+	var dest: Vector2i = ua.path[ua.path.size() - 1]
+	var score: float = 0.0
+	var ruleset := view.ruleset()
+	for n: Vector2i in Grid.neighbors(dest):
+		var ally := view.unit_at(n)
+		if ally == null or ally.team != supplier.team or ally.id == supplier.id:
+			continue
+		var t: UnitType = ruleset.unit_types[ally.type_id]
+		var low_fuel: bool = ally.fuel * 2 <= t.max_fuel
+		var low_ammo: bool = t.max_ammo > 0 and ally.ammo * 2 <= t.max_ammo
+		if low_fuel or low_ammo:
+			score += SUPPLY_ALLY_SCORE
+	if score <= 0.0:
+		return 0.0
+	if _in_the_way(view, supplier, dest):
+		score -= KEEP_CLEAR_SCORE
+	return score + _garrison_bonus(view, supplier, dest)
+
+
+func _score_join(view: StateView, ua: UnitAction) -> float:
+	var mover := view.unit(ua.unit_id)
+	var dest: Vector2i = ua.path[ua.path.size() - 1]
+	var target := view.unit_at(dest)
+	if target == null or mover.display_hp() > 5 or target.display_hp() > 7:
+		return 0.0
+	var unit_type: UnitType = view.ruleset().unit_types[mover.type_id]
+	var surplus: int = maxi(0, mover.display_hp() + target.display_hp() - 10)
+	@warning_ignore("integer_division")
+	var refund: int = surplus * unit_type.cost / 10
+	return JOIN_BASE_SCORE + refund * 0.05
 
 
 func _score_advance(view: StateView, ua: UnitAction) -> float:
@@ -202,7 +276,65 @@ func _score_advance(view: StateView, ua: UnitAction) -> float:
 	if not wounded and _is_pressing(view):
 		urgency *= PRESS_THREAT_FACTOR
 	score += (here - there) / 100.0 * my_cost * 0.01 * urgency * profile.caution * 10.0
+	# Territory shading from InfluenceMap: wounded units pull toward
+	# friendly-controlled ground; exclude this unit's own pre-move shadow
+	# so moving off a tile isn't penalized for leaving itself behind.
+	if wounded:
+		var influence := _influence_for(view)
+		var inf_delta: int = (
+			_other_influence(view, influence, unit, dest)
+			- _other_influence(view, influence, unit, unit.coord)
+		)
+		score += clampf(inf_delta * INFLUENCE_WOUNDED_FACTOR, -40.0, 40.0)
 	return score
+
+
+## Influence at `coord` with `self_unit`'s own contribution subtracted so a
+## unit measures allied/enemy support rather than its own pre-move shadow.
+static func _other_influence(
+	view: StateView, influence: Dictionary[Vector2i, int], self_unit: UnitState, coord: Vector2i
+) -> int:
+	var val: int = influence.get(coord, 0)
+	var d: int = Grid.manhattan(self_unit.coord, coord)
+	if d <= InfluenceMap.SPREAD:
+		@warning_ignore("integer_division")
+		var weight: int = view.ruleset().unit_types[self_unit.type_id].cost / 100
+		var falloff: int = InfluenceMap.SPREAD + 1 - d
+		@warning_ignore("integer_division")
+		val -= weight * falloff / (InfluenceMap.SPREAD + 1)
+	return val
+
+
+## Cached visible units for this decision.
+func _get_visible_units(view: StateView) -> Array[UnitState]:
+	if not _visible_units_ready:
+		_visible_units_ready = true
+		_visible_units = view.visible_units()
+	return _visible_units
+
+
+## Cached friendly units for this decision.
+func _get_my_units(view: StateView) -> Array[UnitState]:
+	if not _my_units_ready:
+		_my_units_ready = true
+		_my_units = view.my_units()
+	return _my_units
+
+
+## Cached fog mask for this decision.
+func _get_fog_mask(view: StateView) -> PackedByteArray:
+	if not _fog_mask_ready:
+		_fog_mask_ready = true
+		_fog_mask = view.fog_mask()
+	return _fog_mask
+
+
+## Territory control map, computed once per decision.
+func _influence_for(view: StateView) -> Dictionary[Vector2i, int]:
+	if not _influence_ready:
+		_influence_ready = true
+		_influence = InfluenceMap.compute(view, view.team, _get_visible_units(view))
+	return _influence
 
 
 ## True when `unit` idling on `coord` would block something: our own
@@ -225,7 +357,7 @@ func _is_pressing(view: StateView) -> bool:
 	if _pressing < 0:
 		var ours: float = 0.0
 		var theirs: float = 0.0
-		for u: UnitState in view.visible_units():
+		for u: UnitState in _get_visible_units(view):
 			var worth: float = view.ruleset().unit_types[u.type_id].cost * u.hp / 100.0
 			if u.team == view.team:
 				ours += worth
@@ -238,7 +370,14 @@ func _is_pressing(view: StateView) -> bool:
 ## Threat maps are expensive; one per unit type per decision.
 func _threat_for(view: StateView, type_id: int) -> Dictionary[Vector2i, int]:
 	if not _threat_cache.has(type_id):
-		_threat_cache[type_id] = ThreatMap.compute(view, view.team, type_id, _enemy_reach_cache)
+		_threat_cache[type_id] = ThreatMap.compute(
+			view,
+			view.team,
+			type_id,
+			_enemy_reach_cache,
+			_get_visible_units(view),
+			_get_fog_mask(view)
+		)
 	return _threat_cache[type_id]
 
 
@@ -259,40 +398,47 @@ func _score_build(view: StateView, action: BuildAction) -> float:
 	return score
 
 
-## True while the army holds fewer capturers than its quota.
+## True while the army holds fewer capturers than its quota (cached per decision).
 func _short_of_capturers(view: StateView) -> bool:
-	var army := view.my_units()
-	var capturers: int = 0
-	for mine: UnitState in army:
-		if view.ruleset().unit_types[mine.type_id].capture_capable:
-			capturers += 1
-	var quota: int = profile.min_capturers
-	if profile.capturer_share > 0:
-		@warning_ignore("integer_division")
-		quota = maxi(quota, army.size() / profile.capturer_share)
-	return capturers < quota
+	if _short_capturers < 0:
+		var army := _get_my_units(view)
+		var capturers: int = 0
+		for mine: UnitState in army:
+			if view.ruleset().unit_types[mine.type_id].capture_capable:
+				capturers += 1
+		var quota: int = profile.min_capturers
+		if profile.capturer_share > 0:
+			@warning_ignore("integer_division")
+			quota = maxi(quota, army.size() / profile.capturer_share)
+		_short_capturers = 1 if capturers < quota else 0
+	return _short_capturers == 1
 
 
 ## True when some visible enemy type is hurt by `candidate` and by
-## nothing the army already fields.
+## nothing the army already fields. Open threats are computed once per decision.
 func _answers_an_open_threat(view: StateView, candidate: UnitType) -> bool:
 	if not profile.counter_builds:
 		return false
-	var ruleset := view.ruleset()
-	var checked: Dictionary[int, bool] = {}
-	for enemy: UnitState in view.visible_units():
-		if enemy.team == view.team or checked.has(enemy.type_id):
-			continue
-		checked[enemy.type_id] = true
-		var enemy_key: StringName = ruleset.unit_types[enemy.type_id].key
-		if _base_damage(candidate, enemy_key) < COUNTER_MIN_DAMAGE:
-			continue
-		var answered: bool = false
-		for mine: UnitState in view.my_units():
-			if _base_damage(ruleset.unit_types[mine.type_id], enemy_key) >= COUNTER_MIN_DAMAGE:
-				answered = true
-				break
-		if not answered:
+	if not _open_threats_ready:
+		_open_threats_ready = true
+		_open_threat_keys = []
+		var ruleset := view.ruleset()
+		var my_army := _get_my_units(view)
+		var checked: Dictionary[int, bool] = {}
+		for enemy: UnitState in _get_visible_units(view):
+			if enemy.team == view.team or checked.has(enemy.type_id):
+				continue
+			checked[enemy.type_id] = true
+			var enemy_key: StringName = ruleset.unit_types[enemy.type_id].key
+			var answered: bool = false
+			for mine: UnitState in my_army:
+				if _base_damage(ruleset.unit_types[mine.type_id], enemy_key) >= COUNTER_MIN_DAMAGE:
+					answered = true
+					break
+			if not answered:
+				_open_threat_keys.append(enemy_key)
+	for enemy_key: StringName in _open_threat_keys:
+		if _base_damage(candidate, enemy_key) >= COUNTER_MIN_DAMAGE:
 			return true
 	return false
 
@@ -324,7 +470,7 @@ func _watch_hqs(view: StateView) -> void:
 			_my_hqs.append(Grid.from_idx(i, map.width))
 	if _my_hqs.is_empty():
 		return
-	for enemy: UnitState in view.visible_units():
+	for enemy: UnitState in _get_visible_units(view):
 		if enemy.team == view.team or enemy.carrier_id != -1:
 			continue
 		if not ruleset.unit_types[enemy.type_id].capture_capable:
@@ -399,7 +545,7 @@ func _find_objective(view: StateView, unit: UnitState) -> Vector2i:
 	if best != NO_OBJECTIVE:
 		return best
 	var enemies: Array[UnitState] = []
-	for enemy: UnitState in view.visible_units():
+	for enemy: UnitState in _get_visible_units(view):
 		if enemy.team != unit.team:
 			enemies.append(enemy)
 	return _nearest_unit(unit.coord, enemies)

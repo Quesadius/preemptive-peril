@@ -37,6 +37,14 @@ func set_setting(key: String, value: Variant) -> void:
 	save_settings()
 
 
+## Writes several settings and persists once.
+func set_settings(updates: Dictionary) -> void:
+	for key: Variant in updates:
+		if key is String:
+			_values[key] = updates[key]
+	save_settings()
+
+
 ## Loads from disk, tolerating a missing or corrupt file. Only known
 ## keys whose value has the default's type are taken (consumers read
 ## them as typed values), and volumes are clamped to 0..1 — anything
@@ -65,12 +73,16 @@ func apply_loaded(loaded: Dictionary) -> void:
 		var value: Variant = loaded[key]
 		# JSON has one number type: a whole float is how an int setting
 		# comes back from disk.
+		if value is float and not is_finite(value):
+			continue
 		if DEFAULTS[key] is int and value is float and value == floorf(value):
 			value = int(value)
 		if typeof(value) != typeof(DEFAULTS[key]):
 			continue
 		if (key as String).ends_with("_volume"):
 			value = clampf(value, 0.0, 1.0)
+		elif key == "animation_speed":
+			value = clampf(value, 0.25, 4.0)
 		_values[key] = value
 
 

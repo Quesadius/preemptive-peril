@@ -40,6 +40,9 @@ static func build_all() -> Dictionary[StringName, AudioStream]:
 	out[&"attack"] = _stream(
 		_mix(_tone(0.0, 0.0, 0.18, noise, 0.35), _tone(140.0, 60.0, 0.18, tri, 0.4))
 	)
+	out[&"ambush"] = _stream(
+		_join([_tone(520.0, 220.0, 0.09, sq, 0.24), _tone(310.0, 140.0, 0.11, sq, 0.24)])
+	)
 	out[&"destroy"] = _stream(
 		_mix(_tone(0.0, 0.0, 0.45, noise, 0.4), _tone(220.0, 40.0, 0.45, tri, 0.4))
 	)

@@ -95,3 +95,54 @@ func test_hidden_enemy_destination_takes_the_order() -> void:
 	_choose(b, "Wait")
 	assert_that(mine.coord).is_equal(Vector2i(0, 2))
 	assert_bool(mine.has_acted).is_true()
+
+
+func test_move_and_attack_preview_shows_counterattack_and_panels_refresh() -> void:
+	# Tank moves from (0,2) to (1,2) and targets enemy tank at (2,2).
+	# Counterattack must appear in the forecast, and after committing, the
+	# unit info panel under the cursor must immediately reflect the new HP.
+	var b := _rig()
+	var gs := BattleFixture.make_state()
+	BattleFixture.spawn(gs, BattleFixture.TANK, 0, Vector2i(0, 2))
+	var foe := BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(2, 2))
+	b.load_state(gs)
+	b.cursor.move_to(Vector2i(0, 2))
+	b.controller.confirm()
+	b.cursor.move_to(Vector2i(1, 2))
+	b.controller.confirm()
+	_choose(b, "Attack")
+	assert_that(b.cursor.coord).is_equal(Vector2i(2, 2))
+	assert_that(b.hud.damage_panel.text()).is_equal("DMG 4.9  counter 2.9")
+	b.controller.confirm()
+	assert_int(foe.hp).is_equal(51)
+	assert_bool(b.hud.unit_panel.visible).is_true()
+	assert_bool(b.hud.unit_panel.stats_text().contains("HP 6")).is_true()
+
+
+func test_multi_cargo_unload_lists_each_passenger() -> void:
+	var b := _rig()
+	var gs := BattleFixture.make_econ_state()
+	gs.ruleset.unit_types[BattleFixture.APC].transport_capacity = 2
+	var apc := BattleFixture.spawn(gs, BattleFixture.APC, 0, Vector2i(2, 2))
+	var first := BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(1, 2))
+	var second := BattleFixture.spawn(gs, BattleFixture.RANGER, 0, Vector2i(2, 1))
+	for r: UnitState in [first, second]:
+		var board := UnitAction.new()
+		board.unit_id = r.id
+		board.path = [r.coord, Vector2i(2, 2)]
+		board.verb = UnitAction.Verb.LOAD
+		Rules.apply(gs, board)
+	Rules.apply(gs, EndTurnAction.new())
+	Rules.apply(gs, EndTurnAction.new())
+	b.load_state(gs)
+	b.cursor.move_to(Vector2i(2, 2))
+	b.controller.confirm()
+	b.controller.confirm()
+	var items := _menu(b).items()
+	assert_bool(items.has("Unload: infantry")).is_true()
+	assert_bool(items.has("Unload: ranger")).is_true()
+	_choose(b, "Unload: ranger")
+	b.cursor.move_to(Vector2i(2, 1))
+	b.controller.confirm()
+	assert_int(second.carrier_id).is_equal(-1)
+	assert_int(first.carrier_id).is_equal(apc.id)

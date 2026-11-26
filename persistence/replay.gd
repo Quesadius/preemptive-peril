@@ -79,6 +79,11 @@ static func state_from_map(
 				push_error("match setup uses unknown CO key %s" % co_key)
 				return null
 		gs.players.append(p)
+	for i: int in range(map.property_owner.size()):
+		var owner_team: int = map.property_owner[i]
+		if owner_team != MapState.NO_OWNER and Economy.player_of(gs, owner_team) == null:
+			push_error("map %s owns property %d for unknown team %d" % [def.key, i, owner_team])
+			return null
 	for spawn: Dictionary in def.starting_units:
 		var type_key: Variant = spawn.get("type")
 		var type_id: int = -1
@@ -92,6 +97,9 @@ static func state_from_map(
 		var y: Variant = spawn.get("y")
 		if not (team is int and x is int and y is int):
 			push_error("map %s has a malformed spawn %s" % [def.key, str(spawn)])
+			return null
+		if Economy.player_of(gs, int(team)) == null:
+			push_error("map %s spawns unit for unknown team %d" % [def.key, int(team)])
 			return null
 		var at := Vector2i(x, y)
 		if not map.in_bounds(at) or gs.occupancy.has(at):
@@ -108,6 +116,9 @@ static func state_from_map(
 ## refuses (§11).
 static func run(save: SaveGame, ruleset: Ruleset, map_def: MapDefinition) -> GameState:
 	if save == null:
+		return null
+	if ruleset.key != &"" and save.ruleset_key != &"" and ruleset.key != save.ruleset_key:
+		push_error("save expects ruleset %s, got %s" % [save.ruleset_key, ruleset.key])
 		return null
 	if map_def.key != save.map_key:
 		push_error("save expects map %s, got %s" % [save.map_key, map_def.key])
@@ -151,10 +162,11 @@ static func digest(state: GameState) -> String:
 	for p: PlayerState in state.players:
 		parts.append(
 			(
-				"player %d %d %d %d %d %d %s"
+				"player %d %d %d %d %d %d %d %s"
 				% [
 					p.team,
 					p.funds,
+					p.income_percent,
 					p.co_id,
 					p.power_meter,
 					p.power_state,

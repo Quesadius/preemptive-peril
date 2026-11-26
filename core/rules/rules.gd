@@ -8,8 +8,27 @@ extends RefCounted
 ## milestone.
 
 
+## True when the match has already been decided (at most one living player
+## in a multi-player match, or the active player is eliminated).
+static func is_game_over(state: GameState) -> bool:
+	if state.players.is_empty():
+		return true
+	if not state.active_player().is_alive:
+		return true
+	if state.players.size() > 1:
+		var alive: int = 0
+		for p: PlayerState in state.players:
+			if p.is_alive:
+				alive += 1
+		if alive <= 1:
+			return true
+	return false
+
+
 ## null when legal; otherwise a reason code the UI can display.
 static func validate(state: GameState, action: Action) -> ActionError:
+	if is_game_over(state):
+		return ActionError.new(ActionError.GAME_OVER)
 	if action is UnitAction:
 		return _validate_unit_action(state, action as UnitAction)
 	if action is BuildAction:
@@ -171,6 +190,10 @@ static func _apply_unit_action(state: GameState, ua: UnitAction) -> Array[GameEv
 			state.map.capture_progress.erase(unit.coord)  # leaving abandons a capture
 			state.occupancy.erase(unit.coord)
 			unit.coord = dest
+			# Carried passengers travel with their carrier so the shared-coord
+			# invariant holds after every move.
+			for cargo_id: int in unit.cargo:
+				state.units[cargo_id].coord = dest
 			# LOAD and JOIN land on the carrier/target's tile: the verb
 			# finishes the occupancy bookkeeping, not the move.
 			var lands_on_unit: bool = verb == UnitAction.Verb.LOAD or verb == UnitAction.Verb.JOIN

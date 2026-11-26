@@ -33,6 +33,7 @@ base_damage = Dictionary[StringName, int]({
 &"artillery": 32,
 &"copter": 9,
 &"infantry": 65,
+&"md_tank": 1,
 &"mech": 55,
 &"recon": 18,
 &"tank": 6

@@ -13,11 +13,19 @@ extends RefCounted
 ## several maps per decision can share `reach_cache` (enemy id ->
 ## reachable set) across calls; it is filled on demand.
 static func compute(
-	view: StateView, team: int, versus_type_id: int, reach_cache: Dictionary[int, Dictionary] = {}
+	view: StateView,
+	team: int,
+	versus_type_id: int,
+	reach_cache: Dictionary[int, Dictionary] = {},
+	visible_units: Array[UnitState] = [],
+	mask: PackedByteArray = PackedByteArray()
 ) -> Dictionary[Vector2i, int]:
 	var out: Dictionary[Vector2i, int] = {}
 	var versus_key: StringName = view.ruleset().unit_types[versus_type_id].key
-	for enemy: UnitState in view.visible_units():
+	var units: Array[UnitState] = (
+		visible_units if not visible_units.is_empty() else view.visible_units()
+	)
+	for enemy: UnitState in units:
 		if enemy.team == team:
 			continue
 		var base: int = _best_base(view.ruleset(), enemy, versus_key)
@@ -27,7 +35,7 @@ static func compute(
 		var stands: Array[Vector2i] = [enemy.coord]
 		if enemy_type.can_move_and_fire:
 			if not reach_cache.has(enemy.id):
-				reach_cache[enemy.id] = view.reachable_of(enemy.id)
+				reach_cache[enemy.id] = view.reachable_of(enemy.id, mask)
 			stands = []
 			stands.assign(reach_cache[enemy.id].keys())
 		for stand: Vector2i in stands:

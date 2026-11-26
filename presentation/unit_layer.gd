@@ -53,6 +53,20 @@ func view_for(unit_id: int) -> UnitView:
 	return null
 
 
+## Returns the existing view for `unit` or creates one on demand (used when
+## an enemy moves out of fog into sight during animation).
+func ensure_view(unit: UnitState, unit_type: UnitType) -> UnitView:
+	var view: UnitView
+	if _views.has(unit.id):
+		view = _views[unit.id]
+	else:
+		view = _make_view()
+		add_child(view)
+		_views[unit.id] = view
+	view.present(unit, unit_type)
+	return view
+
+
 func _make_view() -> UnitView:
 	var view: UnitView
 	if unit_view_scene != null:

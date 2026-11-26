@@ -31,6 +31,7 @@ var touch_bar: VBoxContainer
 var _root: Control
 var _result_label: Label
 var _danger_button: Button
+var _banner_tween: Tween
 
 
 func _init() -> void:
@@ -172,10 +173,11 @@ func inspect(state: GameState, coord: Vector2i, viewing_team: int = -1) -> void:
 	# the controller drops the old state; skip coords the state lacks.
 	if not state.map.in_bounds(coord):
 		return
-	terrain_panel.show_tile(state, coord, viewing_team)
+	var mask := Fog.mask_for(state, viewing_team) if viewing_team >= 0 else PackedByteArray()
+	terrain_panel.show_tile(state, coord, viewing_team, mask)
 	var unit: UnitState = state.unit_at(coord)
 	if viewing_team >= 0:
-		unit = Fog.known_occupant(state, viewing_team, coord)
+		unit = Fog.known_occupant(state, viewing_team, coord, mask)
 	unit_panel.show_unit(state, unit)
 
 
@@ -277,13 +279,15 @@ func close_menus() -> void:
 
 
 func _flash_banner(text: String) -> void:
+	if _banner_tween != null and _banner_tween.is_valid():
+		_banner_tween.kill()
 	banner.text = text
 	banner.visible = true
 	banner.modulate.a = 1.0
-	var tw := create_tween()
-	tw.tween_interval(0.9)
-	tw.tween_property(banner, "modulate:a", 0.0, 0.4)
-	tw.tween_callback(func() -> void: banner.visible = false)
+	_banner_tween = create_tween()
+	_banner_tween.tween_interval(0.9)
+	_banner_tween.tween_property(banner, "modulate:a", 0.0, 0.4)
+	_banner_tween.tween_callback(func() -> void: banner.visible = false)
 
 
 func _built_theme() -> Theme:

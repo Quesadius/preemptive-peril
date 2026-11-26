@@ -146,3 +146,4 @@ func test_generator_and_ai_reach_for_powers() -> void:
 	var ai := SimpleAI.new()
 	var choice := ai.choose_action(StateView.for_team(gs, 0))
 	assert_bool(choice is PowerAction).is_true()
+	assert_int((choice as PowerAction).power_level).is_equal(PlayerState.PowerState.SUPER)

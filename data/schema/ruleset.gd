@@ -5,6 +5,7 @@ extends Resource
 ## Near-complete per §7: `damage_tables` stays deferred — tables are
 ## embedded in their weapons rather than registered globally.
 
+@export var key: StringName = &"classic"
 @export var unit_types: Array[UnitType] = []
 @export var terrain_types: Array[TerrainType] = []
 @export var movement_classes: Array[MovementClass] = []

@@ -105,6 +105,11 @@ func _backs_out(phase: BattleController.State, tile: Vector2i) -> bool:
 
 func _on_motion(event: InputEventMouseMotion) -> void:
 	var from_touch: bool = event.device == InputEvent.DEVICE_ID_EMULATION
+	if _pressed and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) == 0:
+		# Button was released outside the window; clear stale press state so
+		# hover resumes immediately.
+		_pressed = false
+		_panning = false
 	if _pressed and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
 		var threshold := TOUCH_DRAG_THRESHOLD if from_touch else DRAG_THRESHOLD
 		if not _panning and event.position.distance_to(_press_at) > threshold:

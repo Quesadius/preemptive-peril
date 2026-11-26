@@ -206,3 +206,14 @@ func test_attack_on_unseen_unit_is_no_target() -> void:
 		assert_int((a as UnitAction).verb).is_not_equal(UnitAction.Verb.ATTACK)
 	gs.config.fog_enabled = false  # in plain sight, the same shot is legal
 	assert_that(_code(gs, shot)).is_equal(&"")
+
+
+func test_validate_and_generator_stop_after_game_over() -> void:
+	var gs := BattleFixture.make_state()
+	BattleFixture.spawn(gs, BattleFixture.TANK, 0, Vector2i(1, 2))
+	var doomed := BattleFixture.spawn(gs, BattleFixture.INFANTRY, 1, Vector2i(2, 2))
+	doomed.hp = 20
+	Rules.apply(gs, _attack(1, [Vector2i(1, 2)], Vector2i(2, 2)))
+	assert_bool(Rules.is_game_over(gs)).is_true()
+	assert_that(_code(gs, EndTurnAction.new())).is_equal(ActionError.GAME_OVER)
+	assert_array(ActionGenerator.generate(gs)).is_empty()

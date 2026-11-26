@@ -157,6 +157,8 @@ func test_random_legal_walk_preserves_invariants() -> void:
 	var chooser := DeterministicRng.new(7)
 	for _ply: int in range(40):
 		var actions := ActionGenerator.generate(gs)
+		if actions.is_empty():
+			break
 		var action: Action = actions[chooser.roll_range(0, actions.size() - 1)]
 		assert_object(Rules.validate(gs, action)).is_null()
 		Rules.apply(gs, action)
@@ -178,6 +180,8 @@ func test_random_legal_walk_with_economy() -> void:
 	var chooser := DeterministicRng.new(11)
 	for _ply: int in range(60):
 		var actions := ActionGenerator.generate(gs)
+		if actions.is_empty():
+			break
 		var action: Action = actions[chooser.roll_range(0, actions.size() - 1)]
 		assert_object(Rules.validate(gs, action)).is_null()
 		Rules.apply(gs, action)
@@ -201,6 +205,8 @@ func test_random_legal_walk_under_fog() -> void:
 	var chooser := DeterministicRng.new(13)
 	for _ply: int in range(60):
 		var actions := ActionGenerator.generate(gs)
+		if actions.is_empty():
+			break
 		var action: Action = actions[chooser.roll_range(0, actions.size() - 1)]
 		assert_object(Rules.validate(gs, action)).is_null()
 		Rules.apply(gs, action)

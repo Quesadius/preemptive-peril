@@ -215,3 +215,39 @@ func test_takes_the_enemy_hq_over_a_kill() -> void:
 	var on_hq := ai.choose_action(StateView.for_team(gs, 0)) as UnitAction
 	assert_int(on_hq.verb).is_equal(UnitAction.Verb.CAPTURE)
 	assert_int(on_hq.unit_id).is_equal(inf.id)
+
+
+func test_move_and_attack_accounts_for_counterattack() -> void:
+	# A weak infantry (20 HP) two tiles from a full-HP enemy tank should NOT
+	# march up and suicide into a 39-damage counter for 0 damage dealt.
+	var gs := BattleFixture.make_state()
+	var inf := BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 2))
+	inf.hp = 20
+	BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(2, 2))
+	var ai := SimpleAI.new()
+	var action := ai.choose_action(StateView.for_team(gs, 0))
+	if action is UnitAction:
+		assert_int((action as UnitAction).verb).is_not_equal(UnitAction.Verb.ATTACK)
+
+
+func test_apc_supplies_low_fuel_ally_and_damaged_twins_join() -> void:
+	var gs := BattleFixture.make_econ_state()
+	var apc := BattleFixture.spawn(gs, BattleFixture.APC, 0, Vector2i(2, 2))
+	var dry := BattleFixture.spawn(gs, BattleFixture.TANK, 0, Vector2i(1, 2))
+	dry.fuel = 5
+	dry.has_acted = true
+	var ai := SimpleAI.new()
+	var sup := ai.choose_action(StateView.for_team(gs, 0)) as UnitAction
+	assert_object(sup).is_not_null()
+	assert_int(sup.unit_id).is_equal(apc.id)
+	assert_int(sup.verb).is_equal(UnitAction.Verb.SUPPLY)
+	# Two battered twin infantry merge via JOIN.
+	var join_gs := BattleFixture.make_state()
+	var a := BattleFixture.spawn(join_gs, BattleFixture.INFANTRY, 0, Vector2i(0, 0))
+	var b := BattleFixture.spawn(join_gs, BattleFixture.INFANTRY, 0, Vector2i(1, 0))
+	a.hp = 40
+	b.hp = 50
+	b.has_acted = true
+	var merged := ai.choose_action(StateView.for_team(join_gs, 0)) as UnitAction
+	assert_object(merged).is_not_null()
+	assert_int(merged.verb).is_equal(UnitAction.Verb.JOIN)

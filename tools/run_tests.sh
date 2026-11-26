@@ -35,7 +35,7 @@ step "Lint"
 if command -v gdlint >/dev/null 2>&1; then
   # Only lint directories that exist — later-milestone dirs aren't created yet.
   lint_dirs=()
-  for d in core ai data presentation ui persistence autoload tests; do
+  for d in core ai data presentation ui persistence autoload tools tests; do
     [[ -d "$d" ]] && lint_dirs+=("$d/")
   done
   if [[ ${#lint_dirs[@]} -eq 0 ]] || gdlint "${lint_dirs[@]}" 2>&1; then

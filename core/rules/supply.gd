@@ -63,12 +63,24 @@ static func begin_turn_repairs(state: GameState, team: int) -> Array[GameEvent]:
 			continue
 		var heal: int = mini(state.ruleset.repair_hp_per_turn, 100 - u.hp)
 		if heal > 0:
-			@warning_ignore("integer_division")
-			var cost: int = unit_type.cost * heal / 100
-			if player.funds >= cost:
-				player.funds -= cost
-				u.hp += heal
-				events.append(Events.UnitRepaired.new(u.id, heal, cost))
+			var chosen_heal: int = 0
+			var chosen_cost: int = 0
+			# Try the full repair first; if funds fall short, step down in
+			# 10-HP (1 displayed HP) increments so tight budgets still repair
+			# what they can afford.
+			var candidate: int = heal
+			while candidate > 0:
+				@warning_ignore("integer_division")
+				var cost: int = unit_type.cost * candidate / 100
+				if player.funds >= cost:
+					chosen_heal = candidate
+					chosen_cost = cost
+					break
+				candidate = candidate - 10 if candidate > 10 else 0
+			if chosen_heal > 0:
+				player.funds -= chosen_cost
+				u.hp += chosen_heal
+				events.append(Events.UnitRepaired.new(u.id, chosen_heal, chosen_cost))
 		if u.fuel != unit_type.max_fuel or u.ammo != unit_type.max_ammo:
 			u.fuel = unit_type.max_fuel
 			u.ammo = unit_type.max_ammo

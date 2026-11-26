@@ -19,14 +19,25 @@ func _init() -> void:
 ## Refreshes the panel for `coord`. Capture progress on a tile
 ## `viewing_team` can't see would betray a hidden capturer, so it is
 ## shown only on visible tiles (-1 = omniscient).
-func show_tile(state: GameState, coord: Vector2i, viewing_team: int = -1) -> void:
+func show_tile(
+	state: GameState,
+	coord: Vector2i,
+	viewing_team: int = -1,
+	mask: PackedByteArray = PackedByteArray()
+) -> void:
 	var terrain: TerrainType = state.ruleset.terrain_types[state.map.terrain_at(coord)]
 	_name_label.text = terrain.display_name
 	var parts: Array[String] = ["DEF " + "*".repeat(terrain.defense_stars)]
 	if terrain.capturable:
 		var owner_team: int = state.map.property_owner[state.map.idx(coord)]
 		parts.append("Neutral" if owner_team == MapState.NO_OWNER else "Team %d" % owner_team)
-		var visible_tile: bool = viewing_team < 0 or Fog.tile_visible(state, viewing_team, coord)
+		var visible_tile: bool = viewing_team < 0 or not state.config.fog_enabled
+		if not visible_tile:
+			visible_tile = (
+				mask[state.map.idx(coord)] == 1
+				if not mask.is_empty()
+				else Fog.tile_visible(state, viewing_team, coord)
+			)
 		if visible_tile and state.map.capture_progress.has(coord):
 			var progress: int = state.map.capture_progress[coord]
 			parts.append("Capture %d/%d" % [progress, state.ruleset.capture_threshold])

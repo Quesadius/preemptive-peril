@@ -58,9 +58,8 @@ const VERB_LABELS: Dictionary[int, String] = {
 var _state: GameState
 var _phase: State = State.IDLE
 var _selected_unit_id: int = -1
-var _reachable: Dictionary[Vector2i, int] = {}
 ## Cheapest route per reachable tile, searched once at selection so the
-## path preview doesn't re-run pathfinding on every cursor step.
+## path preview and reach checks never re-run pathfinding.
 var _paths: Dictionary[Vector2i, Array] = {}
 var _current_path: Array[Vector2i] = []
 var _targets: Array[Vector2i] = []
@@ -68,6 +67,8 @@ var _target_actions: Dictionary[Vector2i, UnitAction] = {}
 var _target_is_attack: bool = false
 var _target_index: int = 0
 var _dest_verbs: Array[int] = []
+var _dest_cargo_indices: Array[int] = []
+var _dest_labels: Array[String] = []
 var _menu_system: bool = false
 var _inspecting: bool = false
 var _danger_on: bool = false
@@ -150,7 +151,7 @@ func phase() -> State:
 ## True when the selected unit can move to `tile` (false with nothing
 ## selected) — PointerInput deselects on a tap outside the range.
 func can_reach(tile: Vector2i) -> bool:
-	return _reachable.has(tile)
+	return _paths.has(tile)
 
 
 ## True when `tile` is one of the targets (or drop tiles) on offer in
@@ -289,21 +290,22 @@ func _confirm_idle() -> void:
 	if unit.has_acted:
 		return
 	_selected_unit_id = unit.id
-	_reachable = Movement.reachable(_state, unit.id)
 	_paths = Movement.all_paths(_state, unit.id)
 	_current_path = [unit.coord]
-	overlay.show_move_range(_dict_keys(_reachable))
+	overlay.show_move_range(_path_keys())
 	overlay.set_path(_current_path)
 	_phase = State.UNIT_SELECTED
 
 
 ## Enemy range inspection: blue = where it can move, red = every tile
 ## it could attack next turn (Threat.danger_zone). Pure display — the
-## phase stays IDLE and clears on cursor movement or cancel.
+## phase stays IDLE and clears on cursor movement or cancel. Evaluated
+## strictly from `_view_team`'s fog perspective so nothing leaks.
 func _inspect_enemy(unit: UnitState) -> void:
 	_inspecting = true
-	overlay.show_move_range(_dict_keys(Movement.reachable(_state, unit.id)))
-	overlay.show_targets(Threat.danger_zone(_state, unit.id))
+	var mask := Fog.mask_for(_state, _view_team)
+	overlay.show_move_range(_dict_keys(Movement.reachable(_state, unit.id, _view_team, mask)))
+	overlay.show_targets(Threat.danger_zone(_state, unit.id, _view_team, mask))
 
 
 func _clear_inspection() -> void:
@@ -315,15 +317,15 @@ func _clear_inspection() -> void:
 
 func _confirm_destination() -> void:
 	var dest := cursor.coord
-	if not _reachable.has(dest):
+	if not _paths.has(dest):
 		return
 	# verbs_at is fog-honest: a hidden enemy's tile offers the ordinary
 	# verbs (execution springs the ambush) rather than a refusal that would
 	# reveal it, and an ally's tile offers only LOAD / JOIN, when legal.
-	var verbs := ActionGenerator.verbs_at(_state, _selected_unit_id, dest)
+	var verbs := ActionGenerator.verbs_at(_state, _selected_unit_id, dest, true)
 	if verbs.is_empty():
 		return  # ally tile with nothing to board or join
-	_dest_verbs = verbs
+	_populate_dest_menu(verbs, dest)
 	_menu_system = false
 	_phase = State.ACTION_MENU
 	if hud != null:
@@ -331,6 +333,32 @@ func _confirm_destination() -> void:
 		return
 	# Headless fallback without a HUD: the last verb (WAIT on open ground).
 	_commit(_unit_action(_dest_verbs[_dest_verbs.size() - 1], Vector2i.ZERO))
+
+
+func _populate_dest_menu(verbs: Array[int], dest: Vector2i) -> void:
+	_dest_verbs = []
+	_dest_cargo_indices = []
+	_dest_labels = []
+	var unit: UnitState = _state.units[_selected_unit_id]
+	var mask := Fog.mask_for(_state, unit.team)
+	for verb: int in verbs:
+		if verb == UnitAction.Verb.UNLOAD and unit.cargo.size() > 1:
+			for ci: int in range(unit.cargo.size()):
+				var can_drop: bool = false
+				for drop: Vector2i in Grid.neighbors(dest):
+					if Transport.validate_unload(_state, unit, dest, ci, drop, mask) == null:
+						can_drop = true
+						break
+				if can_drop:
+					var rider: UnitState = _state.units[unit.cargo[ci]]
+					var rider_name: String = _state.ruleset.unit_types[rider.type_id].display_name
+					_dest_verbs.append(verb)
+					_dest_cargo_indices.append(ci)
+					_dest_labels.append("Unload: %s" % rider_name)
+			continue
+		_dest_verbs.append(verb)
+		_dest_cargo_indices.append(0 if verb == UnitAction.Verb.UNLOAD else -1)
+		_dest_labels.append(VERB_LABELS.get(verb, "?"))
 
 
 func _confirm_target() -> void:
@@ -355,24 +383,22 @@ func _on_menu_chosen(index: int) -> void:
 		_commit(entry)
 		return
 	var verb: int = _dest_verbs[index]
+	var cargo_index: int = _dest_cargo_indices[index]
 	if verb == UnitAction.Verb.ATTACK or verb == UnitAction.Verb.UNLOAD:
 		# Both pick a tile next: attack targets or unload drop tiles.
-		_enter_target_select(verb)
+		_enter_target_select(verb, cargo_index)
 		return
 	_commit(_unit_action(verb, Vector2i.ZERO))
 
 
 ## TARGET_SELECT serves any verb that needs a tile choice; the concrete
 ## per-tile actions come from the generator, the single legality source.
-func _enter_target_select(verb: int) -> void:
-	var dest: Vector2i = _current_path[_current_path.size() - 1]
+func _enter_target_select(verb: int, cargo_index: int = -1) -> void:
 	_target_actions = {}
 	_target_is_attack = verb == UnitAction.Verb.ATTACK
-	for a: Action in ActionGenerator.for_unit(_state, _selected_unit_id):
-		var ua := a as UnitAction
-		if ua.verb != verb or ua.path[ua.path.size() - 1] != dest:
-			continue
-		ua.path = _current_path.duplicate()  # honor the traced arrow
+	for ua: UnitAction in ActionGenerator.target_actions_at(
+		_state, _selected_unit_id, _current_path, verb, cargo_index
+	):
 		_target_actions[ua.target_coord] = ua
 	_targets = []
 	_targets.assign(_target_actions.keys())
@@ -426,16 +452,20 @@ func _on_cursor_moved(c: Vector2i) -> void:
 	if _phase == State.IDLE:
 		_clear_inspection()
 	if _phase == State.TARGET_SELECT:
+		var idx: int = _targets.find(c)
+		if idx >= 0:
+			_target_index = idx
 		if hud != null:
 			var preview: Combat.DamagePreview = null
-			if _target_is_attack and _targets.has(c):
-				preview = Combat.preview(_state, _selected_unit_id, _state.unit_at(c).id)
+			if _target_is_attack and idx >= 0:
+				var dest: Vector2i = _current_path[_current_path.size() - 1]
+				preview = Combat.preview(_state, _selected_unit_id, _state.unit_at(c).id, dest)
 			hud.show_damage_preview(preview)
 		return
 	if _phase != State.UNIT_SELECTED and _phase != State.CHOOSING_DESTINATION:
 		return
 	_phase = State.CHOOSING_DESTINATION
-	if _reachable.has(c):
+	if _paths.has(c):
 		_update_path(c)
 		overlay.set_path(_current_path)
 
@@ -480,17 +510,19 @@ func _commit(action: Action) -> void:
 		push_warning("BattleController: rejected action (%s)" % err.code)
 		return
 	_phase = State.EXECUTING
+	var pre_mask := Fog.mask_for(_state, _view_team)
 	var events := Rules.apply(_state, action)
 	action_committed.emit(action, events)
-	await event_player.play(events)
+	await event_player.play(events, pre_mask, false)
 	_reset_selection()
-	if map_renderer != null:
-		map_renderer.render(_state)
+	_apply_map_events(events)
 	if not _state.active_player().is_ai:
 		_view_team = _state.active_player().team
 	_refresh_fog()
 	if hud != null:
 		hud.refresh(_state)
+		if cursor != null:
+			hud.inspect(_state, cursor.coord, _view_team)
 		hud.on_events(events)
 	_settle(events)
 	await _run_ai_turns()
@@ -506,18 +538,30 @@ func _run_ai_turns() -> void:
 		if Rules.validate(_state, action) != null:
 			push_warning("BattleController: AI chose an illegal action; ending its turn")
 			action = EndTurnAction.new()
+		var pre_mask := Fog.mask_for(_state, _view_team)
 		var events := Rules.apply(_state, action)
 		action_committed.emit(action, events)
-		await event_player.play(events)
-		if map_renderer != null:
-			map_renderer.render(_state)
+		await event_player.play(events, pre_mask, false)
+		_apply_map_events(events)
 		if not _state.active_player().is_ai:
 			_view_team = _state.active_player().team
 		_refresh_fog()
 		if hud != null:
 			hud.refresh(_state)
+			if cursor != null:
+				hud.inspect(_state, cursor.coord, _view_team)
 			hud.on_events(events)
 		_settle(events)
+
+
+## Redraws only map cells whose ownership changed, avoiding full-board
+## TileMapLayer rebuilds after ordinary moves and combat.
+func _apply_map_events(events: Array[GameEvent]) -> void:
+	if map_renderer == null:
+		return
+	for e: GameEvent in events:
+		if e is Events.PropertyCaptured:
+			map_renderer.update_tile(_state, (e as Events.PropertyCaptured).coord)
 
 
 ## Lands the phase after a committed action: IDLE, or GAME_OVER with the
@@ -580,16 +624,12 @@ func _build_rows(coord: Vector2i) -> Array[Dictionary]:
 
 
 func _verb_labels() -> Array[String]:
-	var out: Array[String] = []
-	for verb: int in _dest_verbs:
-		out.append(VERB_LABELS.get(verb, "?"))
-	return out
+	return _dest_labels.duplicate()
 
 
 func _reset_selection() -> void:
 	_inspecting = false
 	_selected_unit_id = -1
-	_reachable = {}
 	_paths = {}
 	_current_path = []
 	_targets = []
@@ -597,11 +637,19 @@ func _reset_selection() -> void:
 	_target_is_attack = false
 	_target_index = 0
 	_dest_verbs = []
+	_dest_cargo_indices = []
+	_dest_labels = []
 	_menu_system = false
 	if overlay != null:
 		overlay.clear()
 	if hud != null:
 		hud.close_menus()
+
+
+func _path_keys() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	out.assign(_paths.keys())
+	return out
 
 
 func _dict_keys(d: Dictionary[Vector2i, int]) -> Array[Vector2i]:

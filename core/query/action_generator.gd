@@ -12,9 +12,11 @@ extends RefCounted
 ## before WAIT, EndTurnAction last.
 
 
-## Every legal action for the active player. EndTurnAction is always
-## legal and always last.
+## Every legal action for the active player. Empty when the match is
+## already decided; otherwise EndTurnAction is always legal and last.
 static func generate(state: GameState) -> Array[Action]:
+	if Rules.is_game_over(state):
+		return []
 	var out: Array[Action] = []
 	for unit: UnitState in state.units_of(state.active_player().team):
 		out.append_array(for_unit(state, unit.id))
@@ -109,13 +111,16 @@ static func _verb_action(unit_id: int, path: Array[Vector2i], verb: int) -> Unit
 ## Verbs available if `unit_id` stops on `dest`, in menu order (ATTACK
 ## then CAPTURE, SUPPLY, UNLOAD, then WAIT; ally-occupied destinations
 ## offer LOAD or JOIN instead). Empty when the unit cannot act or cannot
-## reach `dest`.
-static func verbs_at(state: GameState, unit_id: int, dest: Vector2i) -> Array[int]:
+## reach `dest`. Pass `skip_reach_check = true` when the caller already
+## verified `dest` is reachable.
+static func verbs_at(
+	state: GameState, unit_id: int, dest: Vector2i, skip_reach_check: bool = false
+) -> Array[int]:
 	var out: Array[int] = []
 	var unit: UnitState = state.units[unit_id]
 	if not _can_act(state, unit):
 		return out
-	if not Movement.reachable(state, unit_id).has(dest):
+	if not skip_reach_check and not Movement.reachable(state, unit_id).has(dest):
 		return out
 	var mask := Fog.mask_for(state, unit.team)
 	var occupant: UnitState = Fog.known_occupant(state, unit.team, dest, mask)
@@ -134,6 +139,42 @@ static func verbs_at(state: GameState, unit_id: int, dest: Vector2i) -> Array[in
 	if _has_unload_option(state, unit, dest, mask):
 		out.append(UnitAction.Verb.UNLOAD)
 	out.append(UnitAction.Verb.WAIT)
+	return out
+
+
+## Legal UnitActions for `unit_id` ending at `dest` along `path` for one
+## target-choosing verb (ATTACK or UNLOAD), without re-running pathfinding
+## over the entire board.
+static func target_actions_at(
+	state: GameState, unit_id: int, path: Array[Vector2i], verb: int, cargo_index: int = -1
+) -> Array[UnitAction]:
+	var out: Array[UnitAction] = []
+	if path.is_empty():
+		return out
+	var unit: UnitState = state.units[unit_id]
+	if not _can_act(state, unit):
+		return out
+	var dest: Vector2i = path[path.size() - 1]
+	var mask := Fog.mask_for(state, unit.team)
+	if verb == UnitAction.Verb.ATTACK:
+		for target: Vector2i in _attack_targets(state, unit, dest, mask):
+			var attack := _verb_action(unit_id, path, UnitAction.Verb.ATTACK)
+			attack.target_coord = target
+			out.append(attack)
+	elif verb == UnitAction.Verb.UNLOAD:
+		var indices: Array[int] = []
+		if cargo_index >= 0 and cargo_index < unit.cargo.size():
+			indices.append(cargo_index)
+		else:
+			for ci: int in range(unit.cargo.size()):
+				indices.append(ci)
+		for ci: int in indices:
+			for drop: Vector2i in Grid.neighbors(dest):
+				if Transport.validate_unload(state, unit, dest, ci, drop, mask) == null:
+					var unload := _verb_action(unit_id, path, UnitAction.Verb.UNLOAD)
+					unload.cargo_index = ci
+					unload.target_coord = drop
+					out.append(unload)
 	return out
 
 

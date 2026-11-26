@@ -74,6 +74,8 @@ func set_zoom(level: float) -> void:
 		return
 	camera.zoom = Vector2(zoom_level, zoom_level)
 	_apply_limits()
+	if _map_px != Vector2.ZERO:
+		_clamp_to_limits()
 
 
 ## One step closer.
@@ -94,6 +96,7 @@ func zoom_out() -> void:
 func pinch(level: float, from: Vector2, to: Vector2) -> void:
 	if camera == null:
 		return
+	_clamp_to_limits()
 	var half := _base_view_size() / 2.0
 	var anchor := camera.position + (from - half) / zoom_level
 	set_zoom(level)
@@ -123,6 +126,7 @@ func center_on(coord: Vector2i) -> void:
 func pan_by(screen_delta: Vector2) -> void:
 	if camera == null:
 		return
+	_clamp_to_limits()
 	camera.position -= screen_delta / zoom_level
 	_clamp_to_limits()
 	_follow_paused = true

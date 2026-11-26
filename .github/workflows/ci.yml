@@ -35,7 +35,7 @@ jobs:
           # Only check directories that exist — later-milestone dirs aren't created yet.
           # Mirrors the lint_dirs guard in tools/run_tests.sh.
           fmt_dirs=()
-          for d in core ai data presentation ui tests; do
+          for d in core ai data presentation ui persistence autoload tools tests; do
             [[ -d "$d" ]] && fmt_dirs+=("$d/")
           done
           [[ ${#fmt_dirs[@]} -eq 0 ]] || gdformat --check "${fmt_dirs[@]}"

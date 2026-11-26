@@ -16,8 +16,11 @@ const RULESET_PATH := "res://data/rulesets/classic.tres"
 var _setup: MatchSetup
 var _battle: Battle
 var _touch: bool = false
-## The saved match the setup screen is offering, if any.
+## The saved match the setup screen is offering, and its already-replayed
+## state + map definition so Continue doesn't replay the log a second time.
 var _resumable: SaveGame
+var _resumable_state: GameState
+var _resumable_def: MapDefinition
 
 
 func _ready() -> void:
@@ -59,12 +62,19 @@ func _show_setup() -> void:
 
 func _start_match(options: MatchOptions) -> void:
 	var settings := _settings()
-	settings.set_setting("last_map", String(options.map.key))
-	settings.set_setting("fog_default", options.fog)
-	settings.set_setting("weather_default", options.weather)
-	settings.set_setting("difficulty", String(options.difficulty))
-	settings.set_setting("player_funds", options.player_funds)
-	settings.set_setting("enemy_funds", options.enemy_funds)
+	(
+		settings
+		. set_settings(
+			{
+				"last_map": String(options.map.key),
+				"fog_default": options.fog,
+				"weather_default": options.weather,
+				"difficulty": String(options.difficulty),
+				"player_funds": options.player_funds,
+				"enemy_funds": options.enemy_funds,
+			}
+		)
+	)
 	Sfx.play(self, &"select")
 	_new_battle()
 	_battle.start_match(options)
@@ -75,7 +85,11 @@ func _continue_match() -> void:
 	if _resumable == null:
 		return
 	_new_battle()
-	if not _battle.resume(_resumable):
+	var pre_state := _resumable_state
+	var pre_def := _resumable_def
+	_resumable_state = null
+	_resumable_def = null
+	if not _battle.resume(_resumable, pre_state, pre_def):
 		_show_setup()  # no longer replayable: back to the menu, offer withdrawn
 		return
 	Sfx.play(self, &"select")
@@ -104,6 +118,8 @@ func _enter_battle() -> void:
 ## can't be continued, so it isn't tried again).
 func _find_resumable() -> String:
 	_resumable = null
+	_resumable_state = null
+	_resumable_def = null
 	var save := SaveGame.read_file(AUTOSAVE_PATH)
 	if save == null:
 		return ""
@@ -115,6 +131,8 @@ func _find_resumable() -> String:
 		SaveGame.delete_file(AUTOSAVE_PATH)
 		return ""
 	_resumable = save
+	_resumable_state = replayed
+	_resumable_def = def
 	return "Continue: %s, day %d" % [def.display_name, replayed.day]
 
 

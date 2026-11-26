@@ -35,6 +35,7 @@ const NOTHING_TO_SUPPLY := &"nothing_to_supply"
 const NO_CO := &"no_co"
 const POWER_ALREADY_ACTIVE := &"power_already_active"
 const INSUFFICIENT_METER := &"insufficient_meter"
+const GAME_OVER := &"game_over"
 
 var code: StringName = &""
 

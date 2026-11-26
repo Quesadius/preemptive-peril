@@ -48,11 +48,14 @@ func my_funds() -> int:
 	return player.funds if player != null else 0
 
 
-## The unit with this id, or null.
+## The unit with this id if `team` can see it, or null.
 func unit(unit_id: int) -> UnitState:
-	if _state.units.has(unit_id):
-		return _state.units[unit_id]
-	return null
+	if not _state.units.has(unit_id):
+		return null
+	var u: UnitState = _state.units[unit_id]
+	if not Fog.sees_unit(_state, team, u):
+		return null
+	return u
 
 
 ## The unit on `coord` as far as this team knows — invisible enemies
@@ -88,11 +91,22 @@ func ruleset() -> Ruleset:
 	return _state.ruleset
 
 
-## Luckless damage forecast.
-func preview_attack(attacker_id: int, defender_id: int) -> Combat.DamagePreview:
-	return Combat.preview(_state, attacker_id, defender_id)
+## Luckless damage forecast; when `from` is given, evaluates counterattack
+## adjacency and attacker terrain defense from `from`.
+func preview_attack(
+	attacker_id: int, defender_id: int, from: Vector2i = Vector2i(-1, -1)
+) -> Combat.DamagePreview:
+	return Combat.preview(_state, attacker_id, defender_id, from)
 
 
-## Movement.reachable passthrough, for AI positioning maps.
-func reachable_of(unit_id: int) -> Dictionary[Vector2i, int]:
-	return Movement.reachable(_state, unit_id)
+## Fog-honest Movement.reachable passthrough, evaluated from `team`'s
+## visibility so inspecting enemy reach never leaks fog information.
+func reachable_of(
+	unit_id: int, mask: PackedByteArray = PackedByteArray()
+) -> Dictionary[Vector2i, int]:
+	return Movement.reachable(_state, unit_id, team, mask)
+
+
+## Fog visibility mask for `team` (empty when fog is disabled).
+func fog_mask() -> PackedByteArray:
+	return Fog.mask_for(_state, team)

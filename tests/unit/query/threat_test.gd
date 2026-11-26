@@ -74,5 +74,20 @@ func test_team_danger_zone_respects_fog() -> void:
 	assert_array(Threat.team_danger_zone(gs, 0)).is_empty()
 	var tank := BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(0, 2))  # lit
 	var combined := Threat.team_danger_zone(gs, 0)
-	assert_array(combined).contains_exactly(Threat.danger_zone(gs, tank.id))
+	assert_array(combined).contains_exactly(Threat.danger_zone(gs, tank.id, 0))
 	assert_object(arty).is_not_null()  # present, hidden, and excluded
+
+
+func test_danger_zone_under_fog_does_not_leak_hidden_enemy_positions() -> void:
+	# Visible blue tank at (0,2), hidden blue infantry in forest at (1,1).
+	# Without viewer filtering, the hidden infantry would stop the tank from
+	# standing on (1,1) and could carve a gap in the overlay, leaking its tile.
+	var gs := BattleFixture.make_state()
+	gs.config.fog_enabled = true
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(0, 0))  # sees (0,2), not forest (1,1)
+	var tank := BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(0, 2))
+	var without_hidden := Threat.team_danger_zone(gs, 0)
+	BattleFixture.spawn(gs, BattleFixture.INFANTRY, 1, Vector2i(1, 1))  # hidden in forest
+	var with_hidden := Threat.team_danger_zone(gs, 0)
+	assert_array(with_hidden).contains_exactly(without_hidden)
+	assert_object(tank).is_not_null()

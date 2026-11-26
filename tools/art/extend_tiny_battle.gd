@@ -75,7 +75,9 @@ func _initialize() -> void:
 		)
 		_stamp(sheet, ROCKETS_COLUMN, row, LAUNCHER, LAUNCHER_LEFT, LAUNCHER_TOP, team_dark)
 	var err := sheet.save_png(ProjectSettings.globalize_path(TARGET))
-	print("wrote %s (%dx%d): %s" % [TARGET, sheet.get_width(), sheet.get_height(), error_string(err)])
+	print(
+		"wrote %s (%dx%d): %s" % [TARGET, sheet.get_width(), sheet.get_height(), error_string(err)]
+	)
 	quit()
 
 
@@ -96,17 +98,13 @@ func _stamp(
 
 ## The color a stamp character paints; transparent means "leave as is".
 func _ink(symbol: String, team_dark: Color) -> Color:
-	match symbol:
-		"o", "O":
-			return OUTLINE
-		"s":
-			return STEEL
-		"l":
-			return STEEL_LIGHT
-		"d":
-			return STEEL_DARK
-		"w":
-			return WHITE
-		"T":
-			return team_dark
-	return Color(0, 0, 0, 0)
+	var palette: Dictionary[String, Color] = {
+		"o": OUTLINE,
+		"O": OUTLINE,
+		"s": STEEL,
+		"l": STEEL_LIGHT,
+		"d": STEEL_DARK,
+		"w": WHITE,
+		"T": team_dark,
+	}
+	return palette.get(symbol, Color(0, 0, 0, 0))

@@ -9,9 +9,16 @@ extends RefCounted
 ## Every tile `unit_id` could attack with its next action: the union of
 ## attack rings over every destination it could actually stop on (just
 ## its own tile for units that cannot move and fire). Empty for unarmed
-## units and for dry ones with no ammo-free fallback. Deterministic
-## row-major order.
-static func danger_zone(state: GameState, unit_id: int) -> Array[Vector2i]:
+## units and for dry ones with no ammo-free fallback. When `viewer_team`
+## >= 0, reachability and stoppable occupancy use only what `viewer_team`
+## can see under fog — never leaking hidden enemies or enemy vision.
+## Deterministic row-major order.
+static func danger_zone(
+	state: GameState,
+	unit_id: int,
+	viewer_team: int = -1,
+	viewer_mask: PackedByteArray = PackedByteArray()
+) -> Array[Vector2i]:
 	var unit: UnitState = state.units[unit_id]
 	if not _armed(state, unit):
 		return []
@@ -19,9 +26,16 @@ static func danger_zone(state: GameState, unit_id: int) -> Array[Vector2i]:
 	var stands: Array[Vector2i] = [unit.coord]
 	if unit_type.can_move_and_fire:
 		stands = []
-		var reach := Movement.reachable(state, unit_id)
+		var mask := viewer_mask
+		if viewer_team >= 0 and mask.is_empty():
+			mask = Fog.mask_for(state, viewer_team)
+		var reach := Movement.reachable(state, unit_id, viewer_team, mask)
 		for dest: Vector2i in reach:
-			var occupant := state.unit_at(dest)
+			var occupant: UnitState = (
+				Fog.known_occupant(state, viewer_team, dest, mask)
+				if viewer_team >= 0
+				else state.unit_at(dest)
+			)
 			if occupant == null or occupant == unit:
 				stands.append(dest)
 	var zone: Dictionary[Vector2i, bool] = {}
@@ -36,7 +50,8 @@ static func danger_zone(state: GameState, unit_id: int) -> Array[Vector2i]:
 
 ## The combined danger zone of every enemy `viewing_team` can see —
 ## the full-board threat overlay. Loaded passengers project nothing;
-## under fog, hidden enemies stay out (an honest map, not an oracle).
+## under fog, hidden enemies stay out and enemy reachability never leaks
+## hidden units or enemy vision (an honest map, not an oracle).
 ## Deterministic row-major order.
 static func team_danger_zone(state: GameState, viewing_team: int) -> Array[Vector2i]:
 	var zone: Dictionary[Vector2i, bool] = {}
@@ -47,7 +62,7 @@ static func team_danger_zone(state: GameState, viewing_team: int) -> Array[Vecto
 			continue
 		if not Fog.sees_unit(state, viewing_team, unit, mask):
 			continue
-		for c: Vector2i in danger_zone(state, uid):
+		for c: Vector2i in danger_zone(state, uid, viewing_team, mask):
 			zone[c] = true
 	var out: Array[Vector2i] = []
 	out.assign(zone.keys())

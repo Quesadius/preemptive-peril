@@ -245,3 +245,36 @@ func test_clicking_off_the_targets_backs_out_of_aiming() -> void:
 	_click_row(b, "Attack")
 	_click(b, Vector2i(2, 2))
 	assert_int(foe.hp).is_less(100)  # the shot landed
+
+
+func test_horizontal_arrows_are_swallowed_by_open_menus() -> void:
+	var menu: ActionMenu = auto_free(ActionMenu.new())
+	add_child(menu)
+	menu.open(["Attack", "Wait"])
+	var right := InputEventAction.new()
+	right.action = "ui_right"
+	right.pressed = true
+	menu._unhandled_input(right)
+	assert_bool(get_viewport().is_input_handled()).is_true()
+	var build: BuildMenu = auto_free(BuildMenu.new())
+	add_child(build)
+	build.open([{"type_id": 0, "label": "Infantry", "affordable": true}])
+	var left := InputEventAction.new()
+	left.action = "ui_left"
+	left.pressed = true
+	build._unhandled_input(left)
+	assert_bool(get_viewport().is_input_handled()).is_true()
+
+
+func test_stuck_press_clears_when_mouse_released_outside_window() -> void:
+	var b := _rig()
+	var gs := BattleFixture.make_state()
+	b.load_state(gs)
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = _screen(b, Vector2i(2, 2))
+	b.pointer_input._unhandled_input(press)
+	# Mouse returns with button_mask == 0 (released outside window): hover works.
+	_hover(b, Vector2i(0, 0))
+	assert_that(b.cursor.coord).is_equal(Vector2i(0, 0))

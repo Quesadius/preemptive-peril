@@ -121,6 +121,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		choose_selected()
 	elif event.is_action_pressed("ui_cancel"):
 		cancel_out()
+	elif event.is_action_pressed("ui_left", true) or event.is_action_pressed("ui_right", true):
+		pass  # swallow horizontal arrows so Cursor doesn't roam behind the menu
 	else:
 		return
 	get_viewport().set_input_as_handled()

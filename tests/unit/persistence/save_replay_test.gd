@@ -143,6 +143,31 @@ func test_replay_rejects_wrong_map() -> void:
 	save.map_key = &"elsewhere"
 	save.player_setup = _setup_players()
 	assert_object(Replay.run(save, _fixture_ruleset(), _small_def())).is_null()
+	var wrong_rs := SaveGame.new()
+	wrong_rs.map_key = &"proving_grounds"
+	wrong_rs.ruleset_key = &"future_variant"
+	wrong_rs.player_setup = _setup_players()
+	assert_object(Replay.run(wrong_rs, _fixture_ruleset(), _small_def())).is_null()
+
+
+func test_state_from_map_rejects_unknown_team_on_spawns_and_properties() -> void:
+	var ruleset := _fixture_ruleset()
+	var bad_spawn := _small_def()
+	MapEditor.place_unit(bad_spawn, &"infantry", 7, Vector2i(3, 0))
+	(
+		assert_object(
+			Replay.state_from_map(bad_spawn, ruleset, GameConfig.new(), 1, _setup_players())
+		)
+		. is_null()
+	)
+	var bad_owner := _small_def()
+	MapEditor.claim_tile(bad_owner, Vector2i(2, 0), 7)
+	(
+		assert_object(
+			Replay.state_from_map(bad_owner, ruleset, GameConfig.new(), 1, _setup_players())
+		)
+		. is_null()
+	)
 
 
 func test_editor_operations() -> void:
@@ -367,4 +392,8 @@ func test_settings_store_filters_types_and_clamps() -> void:
 	assert_int(typeof(store.get_setting("player_funds"))).is_equal(TYPE_INT)
 	assert_that(store.get_setting("enemy_funds")).is_equal(0)
 	assert_that(store.get_setting("difficulty")).is_equal("hard")
+	store.apply_loaded({"animation_speed": 99.0})
+	assert_float(store.get_setting("animation_speed")).is_equal_approx(4.0, 0.0001)
+	store.apply_loaded({"animation_speed": 0.0})
+	assert_float(store.get_setting("animation_speed")).is_equal_approx(0.25, 0.0001)
 	store.reload()  # back to what's on disk

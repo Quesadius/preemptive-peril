@@ -247,19 +247,54 @@ func test_turn_flow_repairs_after_income_then_resupplies() -> void:
 	assert_int(gs.players[1].funds).is_equal(100)  # 500 + 1000 - 1400
 
 
+func test_moving_loaded_carrier_updates_passenger_coord() -> void:
+	var gs := BattleFixture.make_econ_state()
+	var apc := BattleFixture.spawn(gs, BattleFixture.APC, 0, Vector2i(2, 2))
+	var rider := BattleFixture.spawn(gs, BattleFixture.INFANTRY, 0, Vector2i(1, 2))
+	Rules.apply(gs, _act(rider.id, [Vector2i(1, 2), Vector2i(2, 2)], UnitAction.Verb.LOAD))
+	Rules.apply(gs, EndTurnAction.new())
+	Rules.apply(gs, EndTurnAction.new())
+	var drive := _act(apc.id, [Vector2i(2, 2), Vector2i(3, 2)], UnitAction.Verb.WAIT)
+	assert_object(Rules.validate(gs, drive)).is_null()
+	Rules.apply(gs, drive)
+	assert_that(apc.coord).is_equal(Vector2i(3, 2))
+	assert_that(rider.coord).is_equal(Vector2i(3, 2))
+
+
 func test_repair_skipped_when_broke_but_resupply_is_free() -> void:
 	var gs := BattleFixture.make_econ_state()
 	BattleFixture.claim(gs, Vector2i(2, 0), 1)
 	var tank := BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(2, 0))
 	tank.hp = 55
 	tank.fuel = 3
-	gs.players[1].funds = 0  # income 1000 < 1400 repair cost
+	gs.players[1].funds = 0
+	gs.players[1].income_percent = 50  # income 500 < 700 (even a 10-HP partial repair)
 	var events := Rules.apply(gs, EndTurnAction.new())
 	for e: GameEvent in events:
 		assert_bool(e is Events.UnitRepaired).is_false()
 	assert_int(tank.hp).is_equal(55)
 	assert_int(tank.fuel).is_equal(70)  # resupply doesn't care about funds
-	assert_int(gs.players[1].funds).is_equal(1000)
+	assert_int(gs.players[1].funds).is_equal(500)
+
+
+func test_partial_repair_when_only_one_step_affordable() -> void:
+	var gs := BattleFixture.make_econ_state()
+	BattleFixture.claim(gs, Vector2i(2, 0), 1)
+	var tank := BattleFixture.spawn(gs, BattleFixture.TANK, 1, Vector2i(2, 0))
+	tank.hp = 55
+	tank.fuel = 3
+	gs.players[1].funds = 0  # income 1000: can't afford 20 HP (1400), CAN afford 10 HP (700)
+	var events := Rules.apply(gs, EndTurnAction.new())
+	var repaired: Events.UnitRepaired = null
+	for e: GameEvent in events:
+		if e is Events.UnitRepaired:
+			repaired = e as Events.UnitRepaired
+	assert_object(repaired).is_not_null()
+	assert_int(repaired.hp_restored).is_equal(10)
+	assert_int(repaired.cost).is_equal(700)
+	assert_int(tank.hp).is_equal(65)
+	assert_int(tank.fuel).is_equal(70)
+	assert_int(gs.players[1].funds).is_equal(300)
 
 
 func test_fuel_drain_and_crash_at_turn_start() -> void:
