@@ -155,6 +155,13 @@ func _render_art(state: GameState) -> void:
 		detail_layer.tile_set = art_tiles
 		property_layer.tile_set = art_tiles
 	var s := art_set.draw_scale()
+	var filter := (
+		CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		if art_set.tile_px > TILE_SIZE
+		else CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+	terrain_layer.texture_filter = filter
+	detail_layer.texture_filter = filter
 	terrain_layer.scale = Vector2(s, s)
 	detail_layer.scale = Vector2(s, s)
 	terrain_layer.clear()

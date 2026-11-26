@@ -12,7 +12,14 @@ const DANGER_COLOR := Color(1.0, 0.32, 0.05, 0.22)
 
 ## Draws the traced path with the sheet's arrow pieces when set; a
 ## yellow polyline if not.
-@export var art_set: ArtSet
+@export var art_set: ArtSet:
+	set(value):
+		art_set = value
+		texture_filter = (
+			CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			if art_set != null and art_set.tile_px > MapRenderer.TILE_SIZE
+			else CanvasItem.TEXTURE_FILTER_NEAREST
+		)
 
 var move_tiles: Array[Vector2i] = []
 var target_tiles: Array[Vector2i] = []

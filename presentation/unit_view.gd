@@ -74,6 +74,13 @@ func _show_art_sprite() -> void:
 	_art_texture.region = art.region(art_tile)
 	_art_sprite.texture = _art_texture
 	var s := art.draw_scale()
+	var filter := (
+		CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		if art.tile_px > MapRenderer.TILE_SIZE
+		else CanvasItem.TEXTURE_FILTER_NEAREST
+	)
+	texture_filter = filter
+	_art_sprite.texture_filter = filter
 	_art_sprite.scale = Vector2(s, s)
 	_art_sprite.flip_h = art.left_facing_teams.has(team)
 	_art_sprite.visible = true

@@ -37,8 +37,8 @@ func test_ground_details_and_fallback() -> void:
 	var ground := renderer.terrain_layer
 	var detail := renderer.detail_layer
 	var art := renderer.art_set
-	assert_that(ground.scale).is_equal(Vector2(2, 2))  # 16px art in 32px tiles
-	assert_that(detail.scale).is_equal(Vector2(2, 2))
+	assert_that(ground.scale).is_equal(Vector2(0.5, 0.5))  # 64px HD art in 32px tiles
+	assert_that(detail.scale).is_equal(Vector2(0.5, 0.5))
 	# Plains: grass from the sheet, nothing on top.
 	assert_int(ground.get_cell_source_id(Vector2i(0, 0))).is_equal(MapRenderer.ART_SOURCE)
 	assert_bool(art.ground_tiles.has(ground.get_cell_atlas_coords(Vector2i(0, 0)))).is_true()

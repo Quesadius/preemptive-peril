@@ -15,8 +15,9 @@ func _art() -> ArtSet:
 
 func test_covers_the_classic_roster_and_terrain() -> void:
 	var art := _art()
-	assert_that(art.sheet.get_size()).is_equal(Vector2(320, 176))  # 20x11 tiles of 16px
-	assert_float(art.draw_scale()).is_equal_approx(2.0, 0.0001)
+	assert_int(art.tile_px).is_equal(64)
+	assert_that(art.sheet.get_size()).is_equal(Vector2(1280, 704))  # 20x11 tiles of 64px
+	assert_float(art.draw_scale()).is_equal_approx(0.5, 0.0001)
 	var rs := load("res://data/rulesets/classic.tres") as Ruleset
 	for unit_type: UnitType in rs.unit_types:
 		for team: int in [0, 1]:
@@ -50,24 +51,27 @@ func test_units_take_their_team_row() -> void:
 
 
 func test_added_sprites_are_drawn_from_the_packs_own_pixels() -> void:
-	# The twin cannon: the Medium Tank keeps the tank's turret (base red
-	# at (5,5)) and gains an upper barrel where the tank has only outline.
-	var img := _art().sheet.get_image()
+	# The HD sheet keeps dedicated transparent sprites for Medium Tank (col 18)
+	# and Rockets (col 19) across all five army rows (rows 5-9), with clear
+	# margins around each sprite so they composite cleanly onto grass.
+	var art := _art()
+	var px: int = art.tile_px
+	var img := art.sheet.get_image()
 	img.convert(Image.FORMAT_RGBA8)
-	var outline := Color("3f2631")
-	var steel_light := Color("c0cbdc")
-	assert_that(img.get_pixel(8 * 16 + 11, 8 * 16 + 3)).is_equal(outline)  # tank
-	assert_that(img.get_pixel(18 * 16 + 11, 8 * 16 + 3)).is_equal(steel_light)  # md tank
-	assert_that(img.get_pixel(18 * 16 + 11, 8 * 16 + 6)).is_equal(steel_light)  # lower barrel
-	assert_that(img.get_pixel(18 * 16 + 5, 8 * 16 + 5)).is_equal(
-		img.get_pixel(8 * 16 + 5, 8 * 16 + 5)
-	)
-	# The launcher: a white rocket nose over its dark bore, in every color.
-	for row: int in range(5, 10):
-		assert_that(img.get_pixel(19 * 16 + 3, row * 16 + 4)).is_equal(Color("eef8fe"))
-		assert_that(img.get_pixel(19 * 16 + 3, row * 16 + 5)).is_equal(Color("52607c"))
-	# Blue's chassis strip under the launcher is blue's own dark shade.
-	assert_that(img.get_pixel(19 * 16 + 4, 7 * 16 + 10)).is_equal(Color("0077c5"))
+	for col: int in [18, 19]:
+		for row: int in range(5, 10):
+			var opaque: int = 0
+			for y: int in range(px):
+				for x: int in range(px):
+					if img.get_pixel(col * px + x, row * px + y).a > 0.5:
+						opaque += 1
+			assert_int(opaque).is_between(px * px / 4, px * px - 1)
+			# Corners are transparent (background cleanly stripped).
+			assert_float(img.get_pixel(col * px, row * px).a).is_less(0.05)
+	# HP digit badges sit in the bottom-right quadrant, leaving top-left clear.
+	for digit: int in range(1, 10):
+		var tc := art.digit_tile(digit)
+		assert_float(img.get_pixel(tc.x * px + 4, tc.y * px + 4).a).is_less(0.05)
 
 
 func test_buildings_take_their_owners_color() -> void:
@@ -128,7 +132,7 @@ func test_hp_badges_and_cursor() -> void:
 	assert_that(art.digit_tile(6)).is_equal(Vector2i(6, 10))
 	assert_that(art.digit_tile(10)).is_equal(ArtSet.NONE)  # full health shows no badge
 	assert_that(art.cursor_tile).is_equal(Vector2i(7, 3))
-	assert_that(art.region(Vector2i(7, 3))).is_equal(Rect2(112, 48, 16, 16))
+	assert_that(art.region(Vector2i(7, 3))).is_equal(Rect2(448, 192, 64, 64))
 
 
 func test_arrow_pieces_follow_the_path() -> void:

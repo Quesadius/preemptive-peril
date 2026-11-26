@@ -7,7 +7,14 @@ extends Node2D
 signal moved(coord: Vector2i)
 
 ## Draws the sheet's corner-bracket cursor when set; a white box if not.
-@export var art_set: ArtSet
+@export var art_set: ArtSet:
+	set(value):
+		art_set = value
+		texture_filter = (
+			CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+			if art_set != null and art_set.tile_px > MapRenderer.TILE_SIZE
+			else CanvasItem.TEXTURE_FILTER_NEAREST
+		)
 
 var coord: Vector2i = Vector2i.ZERO
 ## True when the last move came from the pointer (hover or tap). The
