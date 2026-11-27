@@ -116,9 +116,7 @@ func base_tile_for(
 	diag_land_mask: int = 0,
 	under_bridge: bool = false
 ) -> Vector2i:
-	var is_water_base: bool = (
-		key == &"sea" or key == &"river" or key == &"bridge" or key == &"port"
-	)
+	var is_water_base: bool = key == &"sea" or key == &"river" or key == &"bridge" or key == &"port"
 	if is_water_base and water_tiles.size() == 16:
 		return _water_tile_for(key, coord, water_mask, diag_land_mask, under_bridge)
 	if base_tiles.has(key):
@@ -129,11 +127,7 @@ func base_tile_for(
 
 
 func _water_tile_for(
-	key: StringName,
-	coord: Vector2i,
-	water_mask: int,
-	diag_land_mask: int,
-	under_bridge: bool
+	key: StringName, coord: Vector2i, water_mask: int, diag_land_mask: int, under_bridge: bool
 ) -> Vector2i:
 	var m: int = water_mask & 15
 	if (
