@@ -109,8 +109,7 @@ func update_tile(state: GameState, c: Vector2i) -> void:
 			terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
 			detail_layer.erase_cell(c)
 			return
-		var wmask: int = water_mask(state, c) if _is_water_key(terrain.key) else 15
-		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(terrain.key, c, wmask))
+		_set_art_base_cell(state, c, terrain.key)
 		var detail := _detail_for(state, c, terrain.key, owner_team)
 		if detail != ArtSet.NONE:
 			detail_layer.set_cell(c, ART_SOURCE, detail)
@@ -151,8 +150,8 @@ func _is_road(state: GameState, c: Vector2i) -> bool:
 
 
 ## Water-neighbor mask for `c` (ArtSet N=1, E=2, S=4, W=8). Sea, rivers,
-## bridges, and off-board edges count as water so oceans and rivers run
-## cleanly off the board while drawing shoreline banks against land tiles.
+## bridges, coastal ports, and off-board edges count as water so oceans,
+## rivers, and ports connect cleanly while drawing shorelines against land.
 func water_mask(state: GameState, c: Vector2i) -> int:
 	var mask: int = 0
 	for n: Vector2i in Grid.neighbors(c):
@@ -164,13 +163,58 @@ func water_mask(state: GameState, c: Vector2i) -> int:
 	return mask
 
 
+## Diagonal land mask for `c` (NE=1, SE=2, SW=4, NW=8; bit=1 means that
+## diagonal neighbor is in-bounds land). Used for concave inner water corners.
+func water_diag_land_mask(state: GameState, c: Vector2i) -> int:
+	var mask: int = 0
+	var diags: Array[Vector2i] = [
+		Vector2i(1, -1),
+		Vector2i(1, 1),
+		Vector2i(-1, 1),
+		Vector2i(-1, -1),
+	]
+	for i: int in range(4):
+		var n: Vector2i = c + diags[i]
+		if state.map.in_bounds(n) and not _is_water_or_bridge(state, n):
+			mask |= (1 << i)
+	return mask
+
+
 func _is_water_key(key: StringName) -> bool:
-	return key == &"sea" or key == &"river" or key == &"bridge"
+	return key == &"sea" or key == &"river" or key == &"bridge" or key == &"port"
 
 
 func _is_water_or_bridge(state: GameState, c: Vector2i) -> bool:
 	var key: StringName = state.ruleset.terrain_types[state.map.terrain_at(c)].key
-	return key == &"sea" or key == &"river" or key == &"bridge"
+	return key == &"sea" or key == &"river" or key == &"bridge" or key == &"port"
+
+
+func _is_under_horizontal_bridge(state: GameState, c: Vector2i) -> bool:
+	var north: Vector2i = c + Vector2i.UP
+	if not state.map.in_bounds(north):
+		return false
+	var nkey: StringName = state.ruleset.terrain_types[state.map.terrain_at(north)].key
+	if nkey != &"bridge" or art_set.bridge_tiles.size() < 2:
+		return false
+	return _detail_for(state, north, nkey, MapState.NO_OWNER) == art_set.bridge_tiles[0]
+
+
+func _set_art_base_cell(state: GameState, c: Vector2i, key: StringName) -> void:
+	if not _is_water_key(key):
+		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(key, c))
+		return
+	var wmask: int = water_mask(state, c)
+	var dmask: int = water_diag_land_mask(state, c) if wmask == 15 else 0
+	var under_b: bool = _is_under_horizontal_bridge(state, c) if wmask == 15 else false
+	var base := art_set.base_tile_for(key, c, wmask, dmask, under_b)
+	var alt: int = 0
+	# Mirror the SE inner corner (2,5) horizontally for a SW inner corner (bit 4).
+	if wmask == 15 and dmask == 4 and base == Vector2i(2, 5):
+		alt = TileSetAtlasSource.TRANSFORM_FLIP_H
+	# Transpose the vertical 1-tile river (3,2) for a horizontal 1-tile river (E+W).
+	elif wmask == (ArtSet.E | ArtSet.W) and base == Vector2i(3, 2):
+		alt = TileSetAtlasSource.TRANSFORM_TRANSPOSE
+	terrain_layer.set_cell(c, ART_SOURCE, base, alt)
 
 
 func _detail_for(state: GameState, c: Vector2i, key: StringName, owner_team: int) -> Vector2i:
@@ -238,8 +282,7 @@ func _render_art(state: GameState) -> void:
 		if not art_set.draws_on_ground(terrain.key):
 			terrain_layer.set_cell(c, SOURCE_ID, Vector2i(terrain_id, 0))
 			continue
-		var wmask: int = water_mask(state, c) if _is_water_key(terrain.key) else 15
-		terrain_layer.set_cell(c, ART_SOURCE, art_set.base_tile_for(terrain.key, c, wmask))
+		_set_art_base_cell(state, c, terrain.key)
 		var detail := _detail_for(state, c, terrain.key, state.map.property_owner[i])
 		if detail != ArtSet.NONE:
 			detail_layer.set_cell(c, ART_SOURCE, detail)

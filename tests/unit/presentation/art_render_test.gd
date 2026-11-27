@@ -113,3 +113,27 @@ func test_borrowed_sprites_carry_their_tag() -> void:
 	var view := battle.unit_layer.view_for(ranger.id)
 	assert_that(view.art_tile).is_equal(Vector2i(8, 8))
 	assert_that(view.tag).is_equal("RG")
+
+
+func test_coastal_port_sits_on_water_edge_and_under_bridge_uses_arch_water() -> void:
+	var b := _rig()
+	var def := MapCatalog.find(&"archipelago")
+	b.load_map(def)
+	var renderer := b.map_renderer
+	var ground := renderer.terrain_layer
+	var detail := renderer.detail_layer
+	# Team 0 Port at (8,2) sits on the north shoreline of the sea: water edge
+	# (1,1) on terrain_layer underneath the red port crane (12,3) on detail_layer.
+	assert_that(ground.get_cell_atlas_coords(Vector2i(8, 2))).is_equal(Vector2i(1, 1))
+	assert_that(detail.get_cell_atlas_coords(Vector2i(8, 2))).is_equal(Vector2i(12, 3))
+	# Team 1 Port at (5,7) sits on the south shoreline (1,3) with blue crane (12,2).
+	assert_that(ground.get_cell_atlas_coords(Vector2i(5, 7))).is_equal(Vector2i(1, 3))
+	assert_that(detail.get_cell_atlas_coords(Vector2i(5, 7))).is_equal(Vector2i(12, 2))
+	# Under-bridge tile (4,8) triggers for open water directly south of a horizontal bridge.
+	assert_that(renderer.art_set.base_tile_for(&"sea", Vector2i(5, 5), 15, 0, true)).is_equal(
+		Vector2i(4, 8)
+	)
+	# Inner corner (0,4) triggers for open water with land on NE diagonal only.
+	assert_that(renderer.art_set.base_tile_for(&"sea", Vector2i(5, 5), 15, 1, false)).is_equal(
+		Vector2i(0, 4)
+	)

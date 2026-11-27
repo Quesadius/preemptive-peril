@@ -97,8 +97,8 @@ static func generate(preset: StringName, seed_val: int, w: int = 12, h: int = 10
 	_place_owned_sym(terrain, owners, w, h, Vector2i(1, 2), 5)  # Factory 1
 	_place_owned_sym(terrain, owners, w, h, Vector2i(2, 1), 5)  # Factory 2
 	if preset == &"islands":
-		_place_owned_sym(terrain, owners, w, h, Vector2i(mid_x - 2, 1), 11)  # Port
-		_set_sym(terrain, w, h, Vector2i(mid_x - 1, 1), 8)  # adjacent sea for port
+		_place_owned_sym(terrain, owners, w, h, Vector2i(mid_x - 1, 1), 11)  # Port on water edge
+		_set_sym(terrain, w, h, Vector2i(mid_x - 1, 2), 8)  # open sea right outside port
 		_place_owned_sym(terrain, owners, w, h, Vector2i(1, 4), 7)  # Airport
 	elif preset == &"mountains":
 		_place_owned_sym(terrain, owners, w, h, Vector2i(1, 3), 7)  # Airport

@@ -31,8 +31,18 @@ const NONE := Vector2i(-1, -1)
 ## Terrains that draw their own base tile instead of grass (e.g. sea, river).
 @export var base_tiles: Dictionary[StringName, Vector2i] = {}
 ## 16-entry water shoreline lookup indexed by water-neighbor mask
-## (N=1, E=2, S=4, W=8; bit=1 means neighbor is water/bridge/off-board).
+## (N=1, E=2, S=4, W=8; bit=1 means neighbor is water/bridge/port/off-board).
 @export var water_tiles: Array[Vector2i] = []
+## Open-water tile variants (weighted by repeats) hashed by coord when all
+## 8 neighbors are water.
+@export var water_open_variants: Array[Vector2i] = []
+## Concave inner-corner water tiles keyed by diagonal land mask
+## (NE=1, SE=2, SW=4, NW=8) when all 4 cardinal neighbors are water.
+@export var water_inner_corners: Dictionary[int, Vector2i] = {}
+## Rapids/waterfall variant for 1-tile-wide vertical rivers (NONE if unmapped).
+@export var river_rapids_tile: Vector2i = NONE
+## Shaded/current water tile drawn directly south of a horizontal bridge.
+@export var under_bridge_tile: Vector2i = NONE
 ## Bridge detail tiles: [horizontal, vertical] drawn over water/ground.
 @export var bridge_tiles: Array[Vector2i] = []
 ## Team flag column (same row order as buildings) for capture indicators.
@@ -95,17 +105,58 @@ func draws_on_ground(key: StringName) -> bool:
 	)
 
 
-## The base tile for `key` at `coord`: auto-tiled shoreline for water
-## terrains when `water_tiles` is populated, dedicated base tile if mapped,
-## otherwise the deterministic grass ground variant.
-func base_tile_for(key: StringName, coord: Vector2i, water_mask: int = 15) -> Vector2i:
-	if (key == &"sea" or key == &"river" or key == &"bridge") and water_tiles.size() == 16:
-		return water_tiles[water_mask & 15]
+## The base tile for `key` at `coord`: auto-tiled shoreline, inner corners,
+## river rapids, under-bridge water, and open-water wave variants for water
+## terrains (including bridges and coastal ports), dedicated base tile if
+## mapped, otherwise the deterministic grass ground variant.
+func base_tile_for(
+	key: StringName,
+	coord: Vector2i,
+	water_mask: int = 15,
+	diag_land_mask: int = 0,
+	under_bridge: bool = false
+) -> Vector2i:
+	var is_water_base: bool = (
+		key == &"sea" or key == &"river" or key == &"bridge" or key == &"port"
+	)
+	if is_water_base and water_tiles.size() == 16:
+		return _water_tile_for(key, coord, water_mask, diag_land_mask, under_bridge)
 	if base_tiles.has(key):
 		return base_tiles[key]
-	if key == &"bridge" and base_tiles.has(&"sea"):
+	if (key == &"bridge" or key == &"port") and base_tiles.has(&"sea"):
 		return base_tiles[&"sea"]
 	return ground_tile(coord)
+
+
+func _water_tile_for(
+	key: StringName,
+	coord: Vector2i,
+	water_mask: int,
+	diag_land_mask: int,
+	under_bridge: bool
+) -> Vector2i:
+	var m: int = water_mask & 15
+	if (
+		under_bridge
+		and (key == &"sea" or key == &"river")
+		and m == 15
+		and under_bridge_tile != NONE
+	):
+		return under_bridge_tile
+	if m == 15:
+		if diag_land_mask != 0 and water_inner_corners.has(diag_land_mask):
+			return water_inner_corners[diag_land_mask]
+		if not water_open_variants.is_empty():
+			return _hashed_pick(water_open_variants, coord)
+	var tile: Vector2i = water_tiles[m]
+	if (
+		key == &"river"
+		and tile == Vector2i(3, 2)
+		and river_rapids_tile != NONE
+		and _coord_hash(coord) % 3 == 0
+	):
+		return river_rapids_tile
+	return tile
 
 
 ## Team flag tile for `team` (row matches team_building_rows), or NONE.
@@ -122,10 +173,17 @@ func flag_tile(team: int) -> Vector2i:
 func ground_tile(coord: Vector2i) -> Vector2i:
 	if ground_tiles.is_empty():
 		return NONE
+	return _hashed_pick(ground_tiles, coord)
+
+
+func _hashed_pick(pool: Array[Vector2i], coord: Vector2i) -> Vector2i:
+	return pool[posmod(_coord_hash(coord), pool.size())]
+
+
+static func _coord_hash(coord: Vector2i) -> int:
 	var h: int = coord.x * 374761393 + coord.y * 668265263
 	h = (h ^ (h >> 13)) * 1274126177
-	h = h ^ (h >> 16)
-	return ground_tiles[posmod(h, ground_tiles.size())]
+	return h ^ (h >> 16)
 
 
 ## What sits on top of the ground for terrain `key`: the road shape for
